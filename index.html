@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Torneo Golf 26</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --g9:#04342C;--g8:#085041;--g7:#0F6E56;--g6:#1D9E75;--g4:#5DCAA5;--g2:#9FE1CB;--g1:#C8F0E3;--g0:#E1F5EE;
+  --a8:#633806;--a6:#BA7517;--a4:#EF9F27;--a1:#FAC775;--a0:#FAEEDA;
+  --r8:#791F1F;--r2:#F09595;--r0:#FCEBEB;
+  --b8:#0C447C;--b2:#85B7EB;--b0:#E6F1FB;
+  --p8:#3C3489;--p0:#EEEDFE;
+  --c8:#712B13;--c0:#FAECE7;
+  --gray9:#2C2C2A;--gray8:#444441;--gray6:#5F5E5A;--gray4:#888780;--gray2:#B4B2A9;--gray1:#D3D1C7;--gray0:#F1EFE8;
+  --bg:#F8F7F3;--surf:#fff;--bdr:rgba(0,0,0,.1);--bdr2:rgba(0,0,0,.18);
+  --tx:var(--gray9);--tx2:var(--gray6);--txm:var(--gray4);
+  --acc:var(--g7);--rad:10px;--radl:16px;
+  --sh:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --shm:0 4px 12px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Outfit',sans-serif;font-size:14px;color:var(--tx);background:var(--bg);min-height:100vh}
+.shell{display:flex;min-height:100vh}
+.sb{width:220px;min-height:100vh;background:var(--g9);display:flex;flex-direction:column;position:fixed;top:0;left:0;z-index:100}
+.main{margin-left:220px;padding:28px 32px;max-width:1100px}
+.sb-logo{padding:24px 20px 20px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sb-logo .t1{font-family:'DM Serif Display',serif;font-size:20px;color:#fff;line-height:1.2}
+.sb-logo .t2{font-size:11px;color:var(--g4);letter-spacing:.08em;margin-top:3px;text-transform:uppercase}
+.nav-sec{padding:16px 12px 8px;font-size:10px;color:var(--g4);letter-spacing:.1em;text-transform:uppercase}
+.ni{display:flex;align-items:center;gap:10px;padding:9px 16px;margin:1px 8px;border-radius:8px;color:rgba(255,255,255,.65);font-size:13px;cursor:pointer;transition:all .15s}
+.ni:hover{background:rgba(255,255,255,.08);color:#fff}
+.ni.active{background:var(--g7);color:#fff}
+.ph{margin-bottom:24px}
+.ph h1{font-family:'DM Serif Display',serif;font-size:28px;font-weight:400}
+.ph p{color:var(--tx2);font-size:14px;margin-top:4px}
+.card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--radl);padding:20px;box-shadow:var(--sh)}
+.ct{font-size:12px;font-weight:500;color:var(--txm);margin-bottom:14px;text-transform:uppercase;letter-spacing:.07em}
+.mg{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}
+.mc{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--rad);padding:16px}
+.ml{font-size:11px;color:var(--txm);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+.mv{font-size:24px;font-weight:600;color:var(--tx);font-family:'DM Mono',monospace}
+.ms{font-size:11px;color:var(--txm);margin-top:3px}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 12px;font-size:11px;color:var(--txm);font-weight:500;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bdr);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--bdr);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr.hl td{background:var(--g0)}
+tr:hover td{background:var(--gray0)}
+.bdg{display:inline-flex;align-items:center;font-size:11px;padding:2px 9px;border-radius:99px;font-weight:500;white-space:nowrap}
+.bg{background:var(--g0);color:var(--g8)}
+.ba{background:var(--a0);color:var(--a8)}
+.br{background:var(--r0);color:var(--r8)}
+.bgr{background:var(--gray0);color:var(--gray6)}
+.bb{background:var(--b0);color:var(--b8)}
+.bp{background:var(--p0);color:var(--p8)}
+.pos{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;font-family:'DM Mono',monospace}
+.p1{background:var(--a0);color:var(--a8);border:1.5px solid var(--a1)}
+.p2{background:var(--gray0);color:var(--gray8);border:1.5px solid var(--gray1)}
+.p3{background:var(--g0);color:var(--g8);border:1.5px solid var(--g1)}
+.pn{background:var(--bg);color:var(--txm);border:1px solid var(--bdr)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--rad);border:1px solid var(--bdr);background:var(--surf);color:var(--tx);font-size:13px;font-family:'Outfit',sans-serif;cursor:pointer;transition:all .15s}
+.btn:hover{background:var(--gray0);border-color:var(--bdr2)}
+.btn-p{background:var(--acc);color:#fff;border-color:var(--acc)}
+.btn-p:hover{background:var(--g8);border-color:var(--g8)}
+.btn-s{padding:5px 12px;font-size:12px;border-radius:7px}
+.btn-d{background:var(--r0);color:var(--r8);border-color:var(--r2)}
+.fg{margin-bottom:16px}
+.fl{display:block;font-size:12px;color:var(--tx2);margin-bottom:5px;font-weight:500}
+.fc{width:100%;padding:8px 12px;border:1px solid var(--bdr);border-radius:var(--rad);background:var(--surf);color:var(--tx);font-size:13px;font-family:'Outfit',sans-serif;transition:border-color .15s}
+.fc:focus{outline:none;border-color:var(--acc)}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sg{display:grid;grid-template-columns:repeat(9,1fr);gap:6px}
+.sc-in input{width:100%;text-align:center;padding:6px 2px;border:1px solid var(--bdr);border-radius:6px;font-size:13px;font-family:'DM Mono',monospace;background:var(--surf);color:var(--tx)}
+.sc-in input:focus{outline:none;border-color:var(--acc);background:var(--g0)}
+.sc-in .hn{text-align:center;font-size:10px;color:var(--txm);margin-bottom:3px;font-weight:500}
+.sc-in .hp{text-align:center;font-size:10px;color:var(--txm);margin-top:2px}
+.tabs{display:flex;border-bottom:1px solid var(--bdr);margin-bottom:20px}
+.tab{padding:10px 18px;font-size:13px;color:var(--tx2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.tab:hover{color:var(--tx)}
+.tab.active{color:var(--acc);border-bottom-color:var(--acc);font-weight:500}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;display:flex;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto}
+.md{background:var(--surf);border-radius:var(--radl);width:100%;max-width:780px;box-shadow:var(--shm)}
+.mh{padding:20px 24px 16px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
+.mh h3{font-size:17px;font-weight:500}
+.mb{padding:20px 24px}
+.mf{padding:16px 24px;border-top:1px solid var(--bdr);display:flex;justify-content:flex-end;gap:10px}
+.mc-btn{background:none;border:none;cursor:pointer;font-size:20px;color:var(--txm);line-height:1}
+.mc-btn:hover{color:var(--tx)}
+.alert{padding:12px 16px;border-radius:var(--rad);border-left:3px solid;font-size:13px;margin-bottom:16px}
+.ai{background:var(--b0);border-color:var(--b2);color:var(--b8)}
+.as{background:var(--g0);border-color:var(--g2);color:var(--g8)}
+.aw{background:var(--a0);border-color:var(--a1);color:var(--a8)}
+.sct{overflow-x:auto;margin-top:8px}
+.sct table{min-width:680px;font-size:12px}
+.sct th,.sct td{padding:5px 7px;text-align:center}
+.sct td:first-child,.sct th:first-child{text-align:left;min-width:100px}
+.sc-cell{width:26px;height:22px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:11px}
+.fc-card{border:1px solid var(--bdr);border-radius:var(--radl);padding:16px 20px;background:var(--surf);cursor:pointer;transition:all .15s;display:flex;flex-direction:column;gap:8px}
+.fc-card:hover{border-color:var(--acc);box-shadow:var(--shm)}
+.fc-card.af{border-color:var(--acc);border-width:2px}
+.div{height:1px;background:var(--bdr);margin:20px 0}
+.ev-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.ev-tog{display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--bdr);border-radius:99px;cursor:pointer;font-size:12px;color:var(--tx2);transition:all .15s;user-select:none}
+.ev-tog.on{border-color:var(--acc);background:var(--g0);color:var(--g8)}
+.ev-tog.pen.on{border-color:#E24B4A;background:var(--r0);color:var(--r8)}
+.uz{border:2px dashed var(--bdr);border-radius:var(--radl);padding:32px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg)}
+.uz:hover,.uz.dv{border-color:var(--acc);background:var(--g0)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.sh h2{font-size:16px;font-weight:500}
+.l1b{background:var(--p0);color:var(--p8)}
+.l2b{background:var(--c0);color:var(--c8)}
+.l3b{background:var(--g0);color:var(--g8)}
+.hidden{display:none!important}
+/* score colors */
+.se{background:var(--a0)!important;color:var(--a8)!important;font-weight:600}
+.sb2{background:var(--g0)!important;color:var(--g8)!important}
+.sp{}
+.sbo{background:var(--b0)!important;color:var(--b8)!important}
+.sd{background:#E8F0FF!important;color:#1a3a8f!important}
+.sw{background:var(--r0)!important;color:var(--r8)!important}
+</style>
+</head>
+<body>
+<div class="shell">
+<nav class="sb">
+  <div class="sb-logo"><div class="t1">Torneo Golf 26</div><div class="t2">Temporada 2026</div></div>
+  <div class="nav-sec">Principal</div>
+  <div class="ni active" onclick="nav('dashboard')">🏠 <span>Dashboard</span></div>
+  <div class="ni" onclick="nav('ranking')">🏆 <span>Rankings</span></div>
+  <div class="nav-sec">Fechas</div>
+  <div class="ni" onclick="nav('fechas')">📅 <span>Ver fechas</span></div>
+  <div class="ni" onclick="nav('carga')">✏️ <span>Cargar fecha</span></div>
+  <div class="nav-sec">Jugadores</div>
+  <div class="ni" onclick="nav('jugadores')">👤 <span>Plantel</span></div>
+  <div class="ni" onclick="nav('stats')">📊 <span>Estadísticas</span></div>
+  <div class="nav-sec">Config</div>
+  <div class="ni" onclick="nav('canchas')">🗺️ <span>Canchas</span></div>
+</nav>
+<main class="main" id="MC"></main>
+</div>
+<div id="MOD"></div>
+
+<script>
+// ════════════════════════════════════════════════════
+// DATOS MAESTROS
+// ════════════════════════════════════════════════════
+const TP = [
+  {id:1, name:'Juan Fraile',         short:'Fraile',      hcp:32, mat:'183433', ini:'JF'},
+  {id:2, name:'Raúl Catalán',        short:'Catalán',     hcp:24, mat:'188549', ini:'RC'},
+  {id:3, name:'Jacques Blehaut',     short:'Blehaut',     hcp:30, mat:'183435', ini:'JB'},
+  {id:4, name:'Joaquín Trusso',      short:'Trusso',      hcp:25, mat:'85697',  ini:'JT'},
+  {id:5, name:'Santiago Moy',        short:'Moy',         hcp:34, mat:'102536', ini:'SM'},
+  {id:6, name:"Tomás D'Elía",        short:"D'Elía",      hcp:0,  mat:'110533', ini:'TD'},
+  {id:7, name:'Tomás Garzón',        short:'Garzón',      hcp:18, mat:'151604', ini:'TG'},
+  {id:8, name:'Juan I. Pasquinelli', short:'Pasquinelli', hcp:16, mat:'156160', ini:'JP'},
+  {id:9, name:'Francisco Drago',     short:'Drago',       hcp:31, mat:'185493', ini:'FD'},
+  {id:10,name:'Fermín Allemand',     short:'Allemand',    hcp:27, mat:'150128',ini:'FA'},
+  {id:11,name:'Agustín Soiza',       short:'Soiza',       hcp:26, mat:'167121', ini:'AS'},
+  {id:12,name:'Francisco Baumann',   short:'Baumann',     hcp:15, mat:'117902', ini:'FB'},
+];
+
+const COURSES = [
+  {id:'cnsi', name:'Club Náutico San Isidro', city:'San Isidro',
+   par:[4,3,4,4,4,5,4,3,4,4,4,5,4,3,5,4,3,4],
+   hdi:[3,15,17,9,5,1,7,13,11,14,6,10,12,2,8,4,18,16],
+   slope:113, rating:68.1}
+];
+
+const SCHED = [
+  {num:1,date:'08/05/2026',course:'cnsi',status:'played',doble:false},
+  {num:2,date:'05/06/2026',course:null, status:'upcoming',doble:false},
+  {num:3,date:'03/07/2026',course:null, status:'pending', doble:false},
+  {num:4,date:'07/08/2026',course:null, status:'pending', doble:false},
+  {num:5,date:'Sep 2026',  course:null, status:'tbd',     doble:false},
+  {num:6,date:'Oct 2026',  course:null, status:'tbd',     doble:true},
+];
+
+// Puntos por posición
+const PTS_N={1:12,2:9,3:7,4:5,5:4,6:3,7:2,8:1};
+const PTS_D={1:24,2:18,3:14,4:10,5:8,6:6,7:4,8:2};
+// Laguneada: 1ro=6, 2do=3, 3ro=0
+const PTS_L={1:6,2:3,3:0};
+
+// DATOS FECHA 1 — verificados contra tarjetas reales
+let FD = {
+  1:{fecha:1,course:'cnsi',date:'08/05/2026',
+    lineas:[
+      {num:1,hora:'12:00',pids:[2,5,8,1]},
+      {num:2,hora:'12:10',pids:[12,11,9,6]},
+      {num:3,hora:'12:50',pids:[3,4,7]},
+    ],
+    scores:{
+      2: {hcp:24,holes:[6,5,5,5,6,6,5,4,5,6,5,5,5,5,7,5,4,6], h19:true,approach:false,hoyoEnUno:false,noApp:false,noCard:false,abandon:false,noShow:false},
+      5: {hcp:34,holes:[7,6,7,7,5,8,7,6,7,5,7,5,5,5,11,7,3,11],h19:true,approach:false,hoyoEnUno:false,noApp:false,noCard:false,abandon:false,noShow:false},
+      8: {hcp:16,holes:[6,6,5,8,7,9,5,5,5,6,5,6,5,3,7,4,3,6], h19:true,approach:false,hoyoEnUno:false,noApp:false,noCard:false,abandon:false,noShow:false},
+      1: {hcp:32,holes:[5,7,7,10,10,8,9,5,5,7,5,9,6,5,7,6,5,6],h19:true,approach:false,hoyoEnUno:false,noApp:false,noCard:false,abandon:false,noShow:false},
+      12:{hcp:15,holes:[6,4,5,6,4,6,8,4,5,4,4,6,7,4,7,6,5,5], h19:true,approach:false,hoyoEnUno:false,noApp:false,noCard:false,abandon:false,noShow:false},
+      11:{hcp:26,holes:[6,5,5,8,6,8,8,5,7,7,6,7,8,5,8,8,5,5], h19:true,approach:false,hoyoEnUno:false,noApp:false,noCard:false,abandon:false,noShow:false},
+      9: {hcp:33,holes:[6,4,6,5,10,7,8,5,7,7,8,9,6,8,9,7,5,7],h19:true,approach:false,hoyoEnUno:false,noApp:false,noCard:false,abandon:false,noShow:false},
+      6: {hcp:0, holes:[5,4,4,4,4,6,5,3,6,4,5,4,4,5,4,6,3,5], h19:true,approach:false,hoyoEnUno:false,noApp:false,noCard:false,abandon:false,noShow:false},
+      3: {hcp:30,holes:[7,4,5,8,5,6,5,6,7,6,8,7,5,9,13,6,7,7],h19:true,approach:false,hoyoEnUno:false,noApp:false,noCard:false,abandon:false,noShow:false},
+      4: {hcp:26,holes:[6,4,5,7,5,6,7,6,7,6,7,7,5,4,6,6,6,7], h19:true,approach:false,hoyoEnUno:false,noApp:false,noCard:false,abandon:false,noShow:false},
+      7: {hcp:18,holes:[7,3,5,4,5,7,7,5,6,5,7,7,5,4,5,5,5,5], h19:true,approach:false,hoyoEnUno:false,noApp:false,noCard:false,abandon:false,noShow:false},
+    }
+  }
+};
+
+// ════════════════════════════════════════════════════
+// CÁLCULOS — verificados contra Excel de Fraile (23 pts)
+// Stableford: birdie(neto-1)=3, par=2, bogey=1, doble+=0
+// ════════════════════════════════════════════════════
+function sph(hcp, hdi){
+  // Strokes per hole — distribuye handicap según orden de dificultad
+  const a=new Array(18).fill(Math.floor(hcp/18));
+  const ex=hcp%18;
+  const sorted=[...hdi.entries?.[Symbol.iterator]?.()??hdi.map((v,i)=>({v,i}))].sort?.((x,y)=>x.v-y.v)
+    ?? hdi.map((v,i)=>({v,i})).sort((x,y)=>x.v-y.v);
+  // fallback simple sort
+  const si=hdi.map((v,i)=>({v,i})).sort((x,y)=>x.v-y.v);
+  for(let k=0;k<ex;k++) a[si[k].i]++;
+  return a;
+}
+
+function stb(holes, hcp, par, hdi){
+  const s=sph(hcp,hdi);
+  return holes.reduce((tot,sc,i)=>{
+    const diff=(sc-s[i])-par[i];
+    return tot+(diff<=-1?3:diff===0?2:diff===1?1:0);
+  },0);
+}
+
+function stbByHole(holes,hcp,par,hdi){
+  const s=sph(hcp,hdi);
+  return holes.map((sc,i)=>{const d=(sc-s[i])-par[i];return d<=-2?4:d===-1?3:d===0?2:d===1?1:0;});
+}
+
+function gross(h){return h.reduce((a,b)=>a+b,0);}
+function neto(h,hcp){return gross(h)-hcp;}
+
+function getCourse(id){return COURSES.find(c=>c.id===id)||COURSES[0];}
+function getPlayer(id){return TP.find(p=>p.id==id);}
+function getSched(n){return SCHED.find(s=>s.num===n);}
+
+// ════════════════════════════════════════════════════
+// ASIGNACIÓN DE PUNTOS CON EMPATES
+// ════════════════════════════════════════════════════
+function assignPts(ranked, doble){
+  // ranked: array con .val (mayor=mejor para STB, menor=mejor para medal)
+  const pm=doble?PTS_D:PTS_N;
+  const out=[];
+  let i=0;
+  while(i<ranked.length){
+    let j=i;
+    while(j<ranked.length-1&&ranked[j].val===ranked[j+1].val) j++;
+    const tied=ranked.slice(i,j+1);
+    const ptsArr=tied.map((_,k)=>pm[i+k+1]||0);
+    const positives=ptsArr.filter(x=>x>0);
+    const avg=positives.length&&tied.length>1
+      ? Math.round(positives.reduce((a,b)=>a+b,0)/tied.length*10)/10
+      : (pm[i+1]||0);
+    tied.forEach(r=>out.push({...r,pos:i+1,tpts:tied.length>1&&positives.length?avg:(pm[i+1]||0)}));
+    i=j+1;
+  }
+  return out;
+}
+
+// ════════════════════════════════════════════════════
+// RESULTADOS POR FECHA
+// ════════════════════════════════════════════════════
+function getFechaResults(fn){
+  const fd=FD[fn]; if(!fd) return [];
+  const c=getCourse(fd.course);
+  return Object.entries(fd.scores).map(([pid,sc])=>{
+    if(sc.noShow) return null;
+    const p=getPlayer(pid);
+    const g=gross(sc.holes), n=neto(sc.holes,sc.hcp);
+    const s=stb(sc.holes,sc.hcp,c.par,c.hdi);
+    const sched=getSched(fn), doble=sched?.doble||false;
+    let bonus=0;
+    if(sc.h19)      bonus+=doble?2:1;
+    if(sc.approach) bonus+=doble?6:2;
+    if(sc.hoyoEnUno)bonus+=doble?24:12;
+    if(sc.noApp)    bonus+=doble?-2:-1;
+    return{pid:parseInt(pid)||pid, p, sc, gross:g, net:n, stb:s, bonus, isReplace:sc.isReplace||false};
+  }).filter(Boolean);
+}
+
+function getFechaRank(fn, mode){
+  const res=getFechaResults(fn);
+  const doble=getSched(fn)?.doble||false;
+  const elig=res.filter(r=>!r.isReplace);
+  const sorted=mode==='stb'
+    ?[...elig].sort((a,b)=>b.stb-a.stb)
+    :[...elig].sort((a,b)=>a.net-b.net);
+  const ranked=assignPts(sorted.map(r=>({...r,val:mode==='stb'?r.stb:r.net})),doble);
+  return ranked.map(r=>({...r,totalPts:r.tpts+r.bonus}));
+}
+
+// ════════════════════════════════════════════════════
+// LAGUNEADA — best ball neto por línea
+// ════════════════════════════════════════════════════
+function getLaguneada(fn){
+  const fd=FD[fn]; if(!fd||!fd.lineas) return [];
+  const c=getCourse(fd.course);
+  const results=fd.lineas.map(l=>{
+    const bph=c.par.map((_,h)=>{
+      const nets=l.pids.map(pid=>{
+        const sc=fd.scores[pid];
+        if(!sc||sc.noShow||!sc.holes) return 999;
+        const s=sph(sc.hcp,c.hdi);
+        return sc.holes[h]-s[h];
+      }).filter(x=>x<999);
+      return nets.length?Math.min(...nets):999;
+    });
+    if(bph.some(x=>x===999)) return null;
+    const parTotal=c.par.reduce((a,b)=>a+b,0);
+    const ida=bph.slice(0,9).reduce((a,b)=>a+b,0);
+    const vta=bph.slice(9).reduce((a,b)=>a+b,0);
+    const tot=bph.reduce((a,b)=>a+b,0);
+    return{...l,bph,ida,vta,tot,vs:tot-parTotal};
+  }).filter(Boolean);
+  return results.sort((a,b)=>a.tot-b.tot).map((l,i)=>({...l,pos:i+1,lagPts:PTS_L[i+1]||0}));
+}
+
+// ════════════════════════════════════════════════════
+// RANKINGS ACUMULADOS
+// ════════════════════════════════════════════════════
+function getAccum(){
+  const map={};
+  TP.forEach(p=>{map[p.id]={pid:p.id,p,stb:0,medal:0,lag:0,mixed:0,fechas:0};});
+  Object.keys(FD).forEach(fn=>{
+    const n=parseInt(fn);
+    // STB: suma directa de puntos Stableford del jugador (no por posición)
+    getFechaResults(n).filter(r=>!r.isReplace).forEach(r=>{
+      if(map[r.pid]){map[r.pid].stb+=r.stb;map[r.pid].fechas++;}
+    });
+    // Medal pts
+    getFechaRank(n,'medal').forEach(r=>{
+      if(map[r.pid]) map[r.pid].medal+=r.totalPts;
+    });
+    // Lag pts
+    getLaguneada(n).forEach(l=>{
+      l.pids.forEach(pid=>{if(map[pid]) map[pid].lag+=l.lagPts;});
+    });
+  });
+  Object.values(map).forEach(r=>{r.mixed=+(r.stb+r.lag).toFixed(1);});
+  return Object.values(map).filter(x=>x.fechas>0);
+}
+
+function getPlayerStats(pid){
+  // Gross results (vs par bruto, sin hcp) para medal stats
+  let geagles=0,gbirdies=0,gpars=0,gbogeys=0,gdbls=0,gworse=0;
+  let asist=0,h19c=0,rounds=0,appr=0,henu=0;
+  let grossA=[],stbA=[],netA=[];
+  const fechaDetail=[];
+  Object.entries(FD).sort((a,b)=>parseInt(a[0])-parseInt(b[0])).forEach(([fn,fd])=>{
+    const sc=fd.scores[pid]; if(!sc||sc.noShow) return;
+    const c=getCourse(fd.course);
+    rounds++;asist++;
+    if(sc.h19) h19c++;
+    if(sc.approach) appr++;
+    if(sc.hoyoEnUno) henu++;
+    const g=gross(sc.holes),n2=neto(sc.holes,sc.hcp);
+    const s2=stb(sc.holes,sc.hcp,c.par,c.hdi);
+    grossA.push(g);netA.push(n2);stbA.push(s2);
+    let fEagles=0,fBirdies=0,fPars=0,fBogeys=0,fDbls=0,fWorse=0;
+    sc.holes.forEach((h,i)=>{
+      const d=h-c.par[i]; // GROSS vs par, sin hcp
+      if(d<=-2){geagles++;fEagles++;}
+      else if(d===-1){gbirdies++;fBirdies++;}
+      else if(d===0){gpars++;fPars++;}
+      else if(d===1){gbogeys++;fBogeys++;}
+      else if(d===2){gdbls++;fDbls++;}
+      else{gworse++;fWorse++;}
+    });
+    fechaDetail.push({fn:parseInt(fn),gross:g,net:n2,stb:s2,
+      eagles:fEagles,birds:fBirdies,pars:fPars,bogs:fBogeys,dbls:fDbls,worse:fWorse});
+  });
+  const avg=a=>a.length?+(a.reduce((x,y)=>x+y,0)/a.length).toFixed(1):null;
+  return{geagles,gbirdies,gpars,gbogeys,gdbls,gworse,
+    asist,h19c,rounds,appr,henu,fechaDetail,
+    avgGross:avg(grossA),avgStb:avg(stbA),
+    bestGross:grossA.length?Math.min(...grossA):null,grossA,stbA};
+}
+
+// ════════════════════════════════════════════════════
+// HELPERS UI
+// ════════════════════════════════════════════════════
+function pb(pos){const c=pos===1?'p1':pos===2?'p2':pos===3?'p3':'pn';return`<span class="pos ${c}">${pos}</span>`;}
+function ptb(pts){
+  const p=typeof pts==='number'?+pts.toFixed(1):0;
+  if(p===0) return`<span class="bdg bgr">0</span>`;
+  if(p<0)  return`<span class="bdg br">${p}</span>`;
+  return`<span class="bdg bg">+${p}</span>`;
+}
+function stb_badge(s){const cls=s>=30?'bg':s>=20?'bb':'bgr';return`<span class="bdg ${cls}">${s}</span>`;}
+function sbdg(st){
+  if(st==='played') return`<span class="bdg bg">Jugada</span>`;
+  if(st==='upcoming') return`<span class="bdg ba">Próxima</span>`;
+  return`<span class="bdg bgr">Pendiente</span>`;
+}
+function scClass(sc,par){
+  if(sc<=par-2) return'se';
+  if(sc===par-1) return'sb2';
+  if(sc===par)   return'sp';
+  if(sc===par+1) return'sbo';
+  if(sc===par+2) return'sd';
+  return'sw';
+}
+function mono(v){return`<span style="font-family:'DM Mono',monospace">${v}</span>`;}
+
+let CUR='dashboard';
+function nav(p){
+  CUR=p;
+  document.querySelectorAll('.ni').forEach(el=>el.classList.remove('active'));
+  const idx=['dashboard','ranking','fechas','carga','jugadores','stats','canchas'].indexOf(p);
+  document.querySelectorAll('.ni')[idx]?.classList.add('active');
+  const mc=document.getElementById('MC');
+  mc.innerHTML='';
+  ({dashboard:rDash,ranking:rRank,fechas:rFechas,carga:rCarga,jugadores:rJug,stats:rStats,canchas:rCanchas})[p]?.(mc);
+}
+function closeM(e){if(e.target===e.currentTarget)closeMD();}
+function closeMD(){document.getElementById('MOD').innerHTML='';}
+
+// ════════════════════════════════════════════════════
+// DASHBOARD
+// ════════════════════════════════════════════════════
+function rDash(el){
+  const all=getAccum();
+  const lS=[...all].sort((a,b)=>b.stb-a.stb)[0];
+  const lM=[...all].sort((a,b)=>b.medal-a.medal)[0];
+  const lX=[...all].sort((a,b)=>b.mixed-a.mixed)[0];
+  const lL=[...all].sort((a,b)=>b.lag-a.lag)[0];
+  el.innerHTML=`
+  <div class="ph"><h1>Dashboard</h1><p>Torneo Golf 26 — Temporada 2026</p></div>
+  <div class="mg">
+    <div class="mc"><div class="ml">Fechas jugadas</div><div class="mv">${Object.keys(FD).length}<span style="font-size:16px;color:var(--txm)"> / 6</span></div><div class="ms">Próxima: 05/06</div></div>
+    <div class="mc"><div class="ml">Líder Stableford</div><div class="mv" style="font-size:18px">${lS?.p.short||'—'}</div><div class="ms">${lS?lS.stb+' pts acum.':''}</div></div>
+    <div class="mc"><div class="ml">Líder Medal</div><div class="mv" style="font-size:18px">${lM?.p.short||'—'}</div><div class="ms">${lM?lM.medal+' pts acum.':''}</div></div>
+    <div class="mc"><div class="ml">Líder Mixto</div><div class="mv" style="font-size:18px">${lX?.p.short||'—'}</div><div class="ms">${lX?lX.mixed+' pts acum.':''}</div></div>
+  </div>
+  <div class="g2" style="margin-bottom:24px">
+    <div class="card">
+      <div class="ct">Ranking Stableford</div>
+      <table><thead><tr><th>#</th><th>Jugador</th><th>STB</th><th>Lag</th><th>Pts</th></tr></thead><tbody>
+      ${[...all].sort((a,b)=>b.stb-a.stb).slice(0,6).map((r,i)=>`<tr class="${i<3?'hl':''}"><td>${pb(i+1)}</td><td>${r.p.name}</td><td style="font-family:'DM Mono',monospace">${r.p?getFechaResults(1).find(x=>x.pid==r.pid)?.stb??'—':'—'}</td><td>${ptb(r.lag)}</td><td>${ptb(r.stb)}</td></tr>`).join('')}
+      </tbody></table>
+      <div style="margin-top:12px"><button class="btn btn-s" onclick="nav('ranking')">Ver completo →</button></div>
+    </div>
+    <div class="card">
+      <div class="ct">Ranking Mixto (STB + Laguneada)</div>
+      <table><thead><tr><th>#</th><th>Jugador</th><th>STB</th><th>Lag</th><th>Total</th></tr></thead><tbody>
+      ${[...all].sort((a,b)=>b.mixed-a.mixed).slice(0,6).map((r,i)=>`<tr class="${i<3?'hl':''}"><td>${pb(i+1)}</td><td>${r.p.name}</td><td style="font-size:12px">${r.stb}</td><td style="font-size:12px">${r.lag}</td><td>${ptb(r.mixed)}</td></tr>`).join('')}
+      </tbody></table>
+      <div style="margin-top:12px"><button class="btn btn-s" onclick="nav('ranking')">Ver completo →</button></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">Calendario 2026</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
+      ${SCHED.map(s=>`<div class="fc-card ${FD[s.num]?'af':''}" onclick="nav('fechas')">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--txm)">F${s.num}${s.doble?' ·2x':''}</div>
+        <div style="font-size:15px;font-family:'DM Serif Display',serif">${s.date}</div>
+        ${s.course?`<div style="font-size:11px;color:var(--txm)">${getCourse(s.course).name.split(' ').slice(-2).join(' ')}</div>`:'<div style="font-size:11px;color:var(--txm)">Cancha TBD</div>'}
+        ${sbdg(s.status)}
+      </div>`).join('')}
+      <div class="fc-card"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--txm)">Ryder Cup</div><div style="font-size:15px;font-family:'DM Serif Display',serif">Nov 2026</div><span class="bdg bb">Viaje</span></div>
+    </div>
+  </div>`;
+}
+
+// ════════════════════════════════════════════════════
+// RANKINGS
+// ════════════════════════════════════════════════════
+function rRank(el){
+  el.innerHTML=`
+  <div class="ph"><h1>Rankings anuales</h1><p>Puntos acumulados — temporada 2026</p></div>
+  <div class="tabs">
+    <div class="tab active" onclick="swRT('stb',this)">⭐ Stableford</div>
+    <div class="tab" onclick="swRT('medal',this)">🏅 Medal</div>
+    <div class="tab" onclick="swRT('lag',this)">⛳ Laguneada</div>
+    <div class="tab" onclick="swRT('mixed',this)">🔀 Mixto</div>
+  </div>
+  <div id="RC"></div>`;
+  renderRT('stb');
+}
+function swRT(m,el){
+  document.querySelectorAll('#MC .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');renderRT(m);
+}
+function renderRT(mode){
+  const el=document.getElementById('RC');
+  const all=getAccum();
+  const keyMap={stb:'stb',medal:'medal',lag:'lag',mixed:'mixed'};
+  const k=keyMap[mode];
+  const sorted=[...all].sort((a,b)=>b[k]-a[k]);
+  const descMap={
+    stb:'Stableford: Eagle=4 · Birdie=3 · Par=2 · Bogey=1 · Doble+=0 — ventaja hoyo por hoyo. Se acumula el score STB real de cada fecha. El que más puntos sume en las 6 fechas gana.',
+    medal:'Medal: puntos por posición en score neto (12-9-7-5-4-3-2-1, doble en fecha 6). Empates: se promedian los puntos.',
+    lag:'Laguneada: línea ganadora +6pts · 2da +3pts · 3ra 0pts — suma a cada jugador de la línea por fecha.',
+    mixed:'Mixto: suma de puntos Stableford reales + puntos Laguneada acumulados.'
+  };
+  el.innerHTML=`
+  <div class="alert ai" style="font-size:12px">${descMap[mode]}</div>
+  <div class="card"><table>
+    <thead><tr><th>#</th><th>Jugador</th><th>HCP</th><th>Fechas</th>
+    ${SCHED.map(s=>`<th style="text-align:center">F${s.num}${s.doble?' 2x':''}</th>`).join('')}
+    <th>Total</th></tr></thead>
+    <tbody>${sorted.map((r,i)=>{
+      const cells=SCHED.map(s=>{
+        if(!FD[s.num]) return`<td style="text-align:center;color:var(--txm)">—</td>`;
+        if(mode==='stb'){
+          // STB: mostrar puntos Stableford reales del jugador
+          const fr=getFechaResults(s.num).find(x=>x.pid==r.pid);
+          return fr?`<td style="text-align:center;font-size:12px;font-family:'DM Mono',monospace">${fr.stb}</td>`:`<td style="text-align:center;color:var(--txm)">—</td>`;
+        }
+        if(mode==='medal'){
+          const fr=getFechaRank(s.num,'medal').find(x=>x.pid==r.pid);
+          return fr?`<td style="text-align:center;font-size:12px">${fr.totalPts>0?'+'+fr.totalPts:fr.totalPts}</td>`:`<td style="text-align:center;color:var(--txm)">—</td>`;
+        }
+        if(mode==='lag'){
+          const lr=getLaguneada(s.num).find(l=>l.pids.includes(r.pid));
+          const lp=lr?.lagPts??null;
+          return lp!=null?`<td style="text-align:center;font-size:12px">${lp>0?'+'+lp:lp}</td>`:`<td style="text-align:center;color:var(--txm)">—</td>`;
+        }
+        // mixed: STB real + lag
+        const fr=getFechaResults(s.num).find(x=>x.pid==r.pid);
+        const sp=fr?.stb??0;
+        const lr=getLaguneada(s.num).find(l=>l.pids.includes(r.pid));
+        const lp=lr?.lagPts??0;
+        const tot=sp+lp;
+        return fr?`<td style="text-align:center;font-size:12px">${tot}</td>`:`<td style="text-align:center;color:var(--txm)">—</td>`;
+      }).join('');
+      return`<tr class="${i<3?'hl':''}">
+        <td>${pb(i+1)}</td><td><strong>${r.p.name}</strong></td>
+        <td>${r.p.hcp!=null?r.p.hcp:'TBD'}</td><td>${r.fechas}</td>
+        ${cells}<td>${ptb(r[k])}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>
+  ${mode==='mixed'?`<div class="card" style="margin-top:16px">
+    <div class="ct">Desglose mixto — F1</div>
+    <table><thead><tr><th>#</th><th>Jugador</th><th>Pts STB acum.</th><th>Pts Lag acum.</th><th>Total Mixto</th></tr></thead>
+    <tbody>${sorted.map((r,i)=>`<tr class="${i<3?'hl':''}"><td>${pb(i+1)}</td><td>${r.p.name}</td><td style="font-family:'DM Mono',monospace">${r.stb}</td><td>${ptb(r.lag)}</td><td><strong style="color:var(--acc)">${r.mixed}</strong></td></tr>`).join('')}</tbody>
+    </table></div>`:''}`;
+}
+
+// ════════════════════════════════════════════════════
+// FECHAS
+// ════════════════════════════════════════════════════
+let AF=1;
+function rFechas(el){
+  el.innerHTML=`
+  <div class="ph"><h1>Fechas del torneo</h1><p>Resultados y tarjetas por fecha</p></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:24px">
+    ${SCHED.map(s=>`<div class="fc-card ${AF===s.num?'af':''}" onclick="selF(${s.num})">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--txm)">F${s.num}${s.doble?' ·2x':''}</div>
+      <div style="font-size:14px;font-family:'DM Serif Display',serif">${s.date}</div>
+      ${sbdg(s.status)}
+    </div>`).join('')}
+  </div>
+  <div id="FD"></div>`;
+  rFD(AF);
+}
+function selF(n){
+  AF=n;
+  document.querySelectorAll('.fc-card').forEach((c,i)=>{c.classList.toggle('af',SCHED[i]?.num===n);});
+  rFD(n);
+}
+function stablefordByHoleArr(holes,hcp,par,hdi){
+  const s=sph(hcp,hdi);
+  return holes.map((sc,i)=>{const d=(sc-s[i])-par[i];return d<=-2?4:d===-1?3:d===0?2:d===1?1:0;});
+}
+
+function rFD(n){
+  const el=document.getElementById('FD');
+  const fd=FD[n];
+  if(!fd){el.innerHTML=`<div class="alert ai">Sin datos para fecha ${n}. <button class="btn btn-s btn-p" onclick="nav('carga')" style="margin-left:10px">Cargar →</button></div>`;return;}
+  el.innerHTML=`
+  <div class="tabs">
+    <div class="tab active" onclick="swFT('stb',this,${n})">⭐ Stableford</div>
+    <div class="tab" onclick="swFT('medal',this,${n})">🏅 Medal</div>
+    <div class="tab" onclick="swFT('lag',this,${n})">⛳ Laguneada</div>
+    <div class="tab" onclick="swFT('tarjetas',this,${n})">📋 Tarjetas</div>
+  </div>
+  <div id="FTC"></div>`;
+  rFT('stb',n);
+}
+function swFT(m,el,n){
+  el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');rFT(m,n);
+}
+
+function rFT(mode,fn){
+  const el=document.getElementById('FTC');
+  const fd=FD[fn];
+  const c=getCourse(fd.course);
+  const parTotal=c.par.reduce((a,b)=>a+b,0);
+  const pIda=c.par.slice(0,9).reduce((a,b)=>a+b,0);
+  const pVta=c.par.slice(9).reduce((a,b)=>a+b,0);
+
+  if(mode==='stb'){
+    const results=getFechaResults(fn).filter(r=>!r.isReplace).sort((a,b)=>b.stb-a.stb);
+    el.innerHTML=`
+    <div class="alert ai" style="font-size:12px">Stableford: Eagle=4pts · Birdie=3pts · Par=2pts · Bogey=1pt · Doble+=0pts · ventaja hoyo por hoyo. Los puntos STB se acumulan directamente en el ranking anual.</div>
+    <div class="card" style="margin-bottom:20px"><table>
+      <thead><tr><th>Pos</th><th>Jugador</th><th>HCP</th><th>Pts STB</th><th>Gross</th><th>Neto</th><th>Bonus</th></tr></thead>
+      <tbody>${results.map((r,i)=>`<tr class="${i<3?'hl':''}">
+        <td>${pb(i+1)}</td>
+        <td><strong>${r.p?.name||r.sc.name||'?'}</strong>${r.isReplace?'<span class="bdg ba" style="margin-left:6px;font-size:10px">Reempl.</span>':''}</td>
+        <td>${r.sc.hcp}</td><td>${stb_badge(r.stb)}</td>
+        <td>${mono(r.gross)}</td><td>${mono(r.net)}</td>
+        <td>${r.bonus!==0?ptb(r.bonus):'—'}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+    <div style="font-size:13px;font-weight:500;margin-bottom:12px;color:var(--tx2)">Tarjetas Stableford — detalle hoyo por hoyo</div>
+    ${results.map(r=>{
+      const sc=r.sc;
+      const s=sph(sc.hcp,c.hdi);
+      const stbH=stablefordByHoleArr(sc.holes,sc.hcp,c.par,c.hdi);
+      const netoH=sc.holes.map((h,i)=>h-s[i]);
+      const netoDiff=netoH.map((n,i)=>n-c.par[i]);
+      const ida=sc.holes.slice(0,9).reduce((a,b)=>a+b,0);
+      const vta=sc.holes.slice(9).reduce((a,b)=>a+b,0);
+      const stbIda=stbH.slice(0,9).reduce((a,b)=>a+b,0);
+      const stbVta=stbH.slice(9).reduce((a,b)=>a+b,0);
+      const name=r.p?.name||sc.name||'?';
+      return`<div class="card" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div><span style="font-size:15px;font-weight:500">${name}</span><span style="font-size:12px;color:var(--txm);margin-left:10px">HCP ${sc.hcp}</span></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="font-size:12px;color:var(--tx2)">Gross ${r.gross} · Neto ${r.net}</span>
+            ${stb_badge(r.stb)}
+          </div>
+        </div>
+        <div class="sct"><table style="min-width:660px;font-size:11px">
+          <thead>
+            <tr><th style="text-align:left;min-width:130px">Hoyo</th>${c.par.map((_,i)=>`<th>${i+1}</th>`).join('')}<th>IDA</th><th>VTA</th><th>TOT</th></tr>
+            <tr style="background:var(--gray0)"><th style="text-align:left;font-size:10px;color:var(--txm)">Par</th>${c.par.map(p=>`<td style="color:var(--txm)">${p}</td>`).join('')}<td style="color:var(--txm)">${pIda}</td><td style="color:var(--txm)">${pVta}</td><td style="color:var(--txm)">${parTotal}</td></tr>
+            <tr><th style="text-align:left;font-size:10px;color:var(--txm)">HCP hoyo</th>${c.hdi.map(h=>`<td style="color:var(--txm)">${h}</td>`).join('')}<td colspan="3"></td></tr>
+          </thead>
+          <tbody>
+            <tr><td style="text-align:left;font-weight:500">Gross</td>${sc.holes.map((h,i)=>`<td><span class="sc-cell ${scClass(h,c.par[i])}">${h}</span></td>`).join('')}<td><strong>${ida}</strong></td><td><strong>${vta}</strong></td><td><strong>${sc.holes.reduce((a,b)=>a+b,0)}</strong></td></tr>
+            <tr><td style="text-align:left;font-size:10px;color:var(--txm)">Ventaja</td>${s.map(v=>`<td style="color:var(--txm)">${v}</td>`).join('')}<td colspan="3"></td></tr>
+            <tr><td style="text-align:left;font-size:10px;color:var(--tx2)">Neto</td>${netoH.map((n,i)=>{const d=netoDiff[i];const col=d<=-1?'color:var(--g7)':d===1?'color:var(--b8)':d>=2?'color:var(--r8)':'';return`<td style="${col}">${n}</td>`;}).join('')}<td colspan="3"></td></tr>
+            <tr><td style="text-align:left;font-size:10px;color:var(--txm)">Neto STB</td>${netoDiff.map(d=>{const col=d<=-1?'color:var(--g7)':d===1?'color:var(--b8)':d>=2?'color:var(--r8)':'';const lbl=d<=-2?'Eagle':d===-1?'Birdie':d===0?'Par':d===1?'Bogey':d===2?'Dbl':'Dbl+';return`<td style="font-size:9px;${col}">${lbl}</td>`;}).join('')}<td colspan="3"></td></tr>
+            <tr style="background:var(--g0)"><td style="text-align:left;font-weight:600;color:var(--g8)">Pts STB</td>${stbH.map(p=>{const bg=p===4?'background:var(--a0);color:var(--a8);font-weight:700':p===3?'background:var(--g0);color:var(--g8)':p===2?'background:var(--g0);color:var(--g8);opacity:.7':p===1?'background:var(--b0);color:var(--b8)':'color:var(--txm)';return`<td><span class="sc-cell" style="${bg};font-weight:600">${p}</span></td>`;}).join('')}<td style="font-weight:600;color:var(--g8)">${stbIda}</td><td style="font-weight:600;color:var(--g8)">${stbVta}</td><td style="font-weight:600;color:var(--g8)">${r.stb}</td></tr>
+          </tbody>
+        </table></div>
+      </div>`;
+    }).join('')}`;
+
+  } else if(mode==='medal'){
+    const rank=getFechaRank(fn,'medal');
+    el.innerHTML=`
+    <div class="card" style="margin-bottom:20px"><table>
+      <thead><tr><th>Pos</th><th>Jugador</th><th>HCP</th><th>Gross</th><th>Neto</th><th>vs Par</th><th>Bonus</th><th>Pts torneo</th></tr></thead>
+      <tbody>${rank.map((r,i)=>{
+        const vp=r.net-parTotal,vs=vp===0?'E':vp>0?'+'+vp:''+vp;
+        return`<tr class="${i<3?'hl':''}">
+          <td>${pb(r.pos)}</td><td><strong>${r.p?.name||r.sc.name||'?'}</strong></td>
+          <td>${r.sc.hcp}</td><td>${mono(r.gross)}</td><td>${mono(r.net)}</td>
+          <td>${vs}</td><td>${r.bonus!==0?ptb(r.bonus):'—'}</td>
+          <td><strong>${ptb(r.totalPts)}</strong></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>
+    <div style="font-size:13px;font-weight:500;margin-bottom:12px;color:var(--tx2)">Tarjetas Medal — detalle hoyo por hoyo</div>
+    ${rank.map(r=>{
+      const sc=r.sc;
+      const s=sph(sc.hcp,c.hdi);
+      const netoH=sc.holes.map((h,i)=>h-s[i]);
+      const ida=sc.holes.slice(0,9).reduce((a,b)=>a+b,0);
+      const vta=sc.holes.slice(9).reduce((a,b)=>a+b,0);
+      const nIda=netoH.slice(0,9).reduce((a,b)=>a+b,0);
+      const nVta=netoH.slice(9).reduce((a,b)=>a+b,0);
+      const vp=r.net-parTotal;
+      return`<div class="card" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div><span style="font-size:15px;font-weight:500">${r.p?.name||sc.name||'?'}</span><span style="font-size:12px;color:var(--txm);margin-left:10px">HCP ${sc.hcp}</span></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="font-size:12px;color:var(--tx2)">Gross ${r.gross} · Neto ${r.net}</span>
+            <span class="bdg ${vp<0?'bg':vp===0?'bgr':'br'}">${vp===0?'E':vp>0?'+'+vp:''+vp}</span>
+            ${ptb(r.totalPts)}
+          </div>
+        </div>
+        <div class="sct"><table style="min-width:660px;font-size:11px">
+          <thead>
+            <tr><th style="text-align:left;min-width:110px">Hoyo</th>${c.par.map((_,i)=>`<th>${i+1}</th>`).join('')}<th>IDA</th><th>VTA</th><th>TOT</th></tr>
+            <tr style="background:var(--gray0)"><th style="text-align:left;font-size:10px;color:var(--txm)">Par</th>${c.par.map(p=>`<td style="color:var(--txm)">${p}</td>`).join('')}<td style="color:var(--txm)">${pIda}</td><td style="color:var(--txm)">${pVta}</td><td style="color:var(--txm)">${parTotal}</td></tr>
+            <tr><th style="text-align:left;font-size:10px;color:var(--txm)">HCP hoyo</th>${c.hdi.map(h=>`<td style="color:var(--txm)">${h}</td>`).join('')}<td colspan="3"></td></tr>
+          </thead>
+          <tbody>
+            <tr><td style="text-align:left;font-weight:500">Gross</td>${sc.holes.map((h,i)=>`<td><span class="sc-cell ${scClass(h,c.par[i])}">${h}</span></td>`).join('')}<td><strong>${ida}</strong></td><td><strong>${vta}</strong></td><td><strong>${r.gross}</strong></td></tr>
+            <tr><td style="text-align:left;font-size:10px;color:var(--txm)">Ventaja</td>${s.map(v=>`<td style="color:var(--txm)">${v}</td>`).join('')}<td colspan="3"></td></tr>
+            <tr style="background:var(--g0)"><td style="text-align:left;font-weight:600;color:var(--g8)">Neto</td>${netoH.map((n,i)=>{const d=n-c.par[i];const cls=d<=-1?'sb2':d===0?'sp':d===1?'sbo':'sd';return`<td><span class="sc-cell ${cls}">${n}</span></td>`;}).join('')}<td style="font-weight:600;color:var(--g8)">${nIda}</td><td style="font-weight:600;color:var(--g8)">${nVta}</td><td style="font-weight:600;color:var(--g8)">${r.net}</td></tr>
+          </tbody>
+        </table></div>
+      </div>`;
+    }).join('')}`;
+
+  } else if(mode==='lag'){
+    const lag=getLaguneada(fn);
+    if(!lag.length){el.innerHTML=`<div class="alert ai">Sin líneas configuradas.</div>`;return;}
+    const hW=c.par.map((_,h)=>{
+      const vals=lag.map(l=>l.bph[h]);
+      const mn=Math.min(...vals);
+      return vals.map(v=>v===mn&&vals.filter(x=>x===mn).length===1?'w':v===mn?'t':'l');
+    });
+    const lCls=['l1b','l2b','l3b'];
+    const mdl=['🥇','🥈','🥉'];
+    el.innerHTML=`
+    <div class="mg" style="margin-bottom:16px">
+      ${lag.map((l,i)=>{
+        const names=l.pids.map(id=>getPlayer(id)?.short||'?').join(', ');
+        return`<div class="mc">
+          <div class="ml">${mdl[i]} Línea ${l.num} — ${l.hora}</div>
+          <div class="mv" style="font-size:20px">${l.tot}</div>
+          <div class="ms">vs Par: ${l.vs>=0?'+'+l.vs:l.vs} · <strong>+${l.lagPts} pts</strong>/jugador</div>
+          <div style="margin-top:5px;font-size:11px;color:var(--txm)">${names}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="card sct" style="margin-bottom:20px"><table>
+      <thead>
+        <tr><th>Línea</th>${c.par.map((_,i)=>`<th>${i+1}</th>`).join('')}<th>IDA</th><th>VTA</th><th>TOT</th><th>vs Par</th><th>Lag pts</th></tr>
+        <tr style="background:var(--gray0)"><th style="font-size:11px;color:var(--txm)">Par</th>${c.par.map(p=>`<td style="font-size:11px;color:var(--txm)">${p}</td>`).join('')}<td style="font-size:11px;color:var(--txm)">${pIda}</td><td style="font-size:11px;color:var(--txm)">${pVta}</td><td style="font-size:11px;color:var(--txm)">${parTotal}</td><td colspan="2"></td></tr>
+      </thead>
+      <tbody>${lag.map((l,li)=>{
+        const names=l.pids.map(id=>getPlayer(id)?.short||'?').join(', ');
+        return`<tr>
+          <td><span class="bdg ${lCls[li%3]}">L${l.num}</span><div style="font-size:10px;color:var(--txm);margin-top:3px">${names}</div></td>
+          ${l.bph.map((v,h)=>{const st=hW[h][li];const bg=st==='w'?'background:var(--g0);color:var(--g8)':st==='t'?'background:var(--a0);color:var(--a8)':'';return`<td><span class="sc-cell" style="${bg}">${v}</span></td>`;}).join('')}
+          <td>${mono(l.ida)}</td><td>${mono(l.vta)}</td><td>${mono(l.tot)}</td>
+          <td>${l.vs>=0?'+'+l.vs:l.vs}</td><td>${ptb(l.lagPts)}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>
+    <div style="font-size:13px;font-weight:500;margin-bottom:12px;color:var(--tx2)">Detalle hoyo a hoyo — scores netos por jugador y mejor de línea</div>
+    ${lag.map((l,li)=>{
+      const players=l.pids.map(pid=>({pid,sc:fd.scores[pid],p:getPlayer(pid)})).filter(x=>x.sc&&x.sc.holes);
+      const names=players.map(x=>x.p?.short||x.sc.name||'?').join(' · ');
+      return`<div class="card" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span class="bdg ${lCls[li%3]}" style="font-size:13px">Línea ${l.num}</span>
+          <span style="font-size:13px;font-weight:500">${mdl[li]} ${l.hora}</span>
+          <span style="font-size:12px;color:var(--txm)">${names}</span>
+          <span class="bdg ${lCls[li%3]}" style="margin-left:auto">Neto: ${l.tot} (${l.vs>=0?'+'+l.vs:l.vs} vs par)</span>
+        </div>
+        <div class="sct"><table style="min-width:660px;font-size:11px">
+          <thead>
+            <tr><th style="text-align:left;min-width:120px">Jugador</th>${c.par.map((_,i)=>`<th>${i+1}</th>`).join('')}<th>IDA</th><th>VTA</th><th>TOT</th></tr>
+            <tr style="background:var(--gray0)"><th style="text-align:left;font-size:10px;color:var(--txm)">Par</th>${c.par.map(p=>`<td style="color:var(--txm)">${p}</td>`).join('')}<td style="color:var(--txm)">${pIda}</td><td style="color:var(--txm)">${pVta}</td><td style="color:var(--txm)">${parTotal}</td></tr>
+          </thead>
+          <tbody>
+            ${players.map(({pid,sc,p})=>{
+              const s=sph(sc.hcp,c.hdi);
+              const netoH=sc.holes.map((h,i)=>h-s[i]);
+              const nIda=netoH.slice(0,9).reduce((a,b)=>a+b,0);
+              const nVta=netoH.slice(9).reduce((a,b)=>a+b,0);
+              return`<tr>
+                <td style="text-align:left"><strong>${p?.short||sc.name||'?'}</strong><span style="font-size:10px;color:var(--txm);margin-left:4px">hcp ${sc.hcp}</span></td>
+                ${netoH.map((n,h)=>{
+                  const isBest=n===l.bph[h]&&hW[h][li]==='w';
+                  const isTie=n===l.bph[h]&&hW[h][li]==='t';
+                  const d=n-c.par[h];
+                  const cls=d<=-1?'sb2':d===0?'sp':d===1?'sbo':'sd';
+                  const bg=isBest?'background:var(--g0);color:var(--g8);font-weight:700':isTie?'background:var(--a0);color:var(--a8)':'';
+                  return`<td><span class="sc-cell ${!isBest&&!isTie?cls:''}" style="${bg}">${n}</span></td>`;
+                }).join('')}
+                <td>${nIda}</td><td>${nVta}</td><td><strong>${netoH.reduce((a,b)=>a+b,0)}</strong></td>
+              </tr>`;
+            }).join('')}
+            <tr style="background:var(--g0);border-top:2px solid var(--g2)">
+              <td style="text-align:left;font-weight:600;color:var(--g8)">★ Mejor L${l.num}</td>
+              ${l.bph.map((v,h)=>{const d=v-c.par[h];const cls=d<=-1?'sb2':d===0?'sp':d===1?'sbo':'sd';return`<td><span class="sc-cell ${cls}" style="font-weight:700">${v}</span></td>`;}).join('')}
+              <td style="font-weight:600;color:var(--g8)">${l.ida}</td>
+              <td style="font-weight:600;color:var(--g8)">${l.vta}</td>
+              <td style="font-weight:600;color:var(--g8)">${l.tot}</td>
+            </tr>
+          </tbody>
+        </table></div>
+      </div>`;
+    }).join('')}`;
+
+  } else {
+    el.innerHTML=`<div class="card sct"><table>
+      <thead>
+        <tr><th>Jugador</th>${c.par.map((_,i)=>`<th>${i+1}</th>`).join('')}<th>IDA</th><th>VTA</th><th>TOT</th><th>HCP</th><th>NETO</th><th>STB</th></tr>
+        <tr style="background:var(--gray0)"><th style="font-size:11px;color:var(--txm)">Par</th>${c.par.map(p=>`<td style="font-size:11px;color:var(--txm)">${p}</td>`).join('')}<td style="font-size:11px;color:var(--txm)">${pIda}</td><td style="font-size:11px;color:var(--txm)">${pVta}</td><td style="font-size:11px;color:var(--txm)">${parTotal}</td><td colspan="3"></td></tr>
+      </thead>
+      <tbody>${Object.entries(fd.scores).map(([pid,sc])=>{
+        const p=getPlayer(pid);
+        if(!sc.holes) return '';
+        const g=gross(sc.holes),n=neto(sc.holes,sc.hcp);
+        const s=stb(sc.holes,sc.hcp,c.par,c.hdi);
+        const ida=sc.holes.slice(0,9).reduce((a,b)=>a+b,0);
+        const vta=sc.holes.slice(9).reduce((a,b)=>a+b,0);
+        return`<tr>
+          <td><strong>${p?.short||sc.name||'?'}</strong>${sc.isReplace?'<span class="bdg ba" style="font-size:9px;margin-left:4px">R</span>':''}<br><span style="font-size:10px;color:var(--txm)">hcp ${sc.hcp}</span></td>
+          ${sc.holes.map((h,i)=>`<td><span class="sc-cell ${scClass(h,c.par[i])}">${h}</span></td>`).join('')}
+          <td>${mono(ida)}</td><td>${mono(vta)}</td><td>${mono(g)}</td>
+          <td>${sc.hcp}</td><td>${mono(n)}</td><td>${stb_badge(s)}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
+  }
+}
+
+// ════════════════════════════════════════════════════
+// CARGA DE FECHA — upload de imagen + manual
+// ════════════════════════════════════════════════════
+let CS={fn:null,course:'',date:'',lineas:[],scores:{},lc:0};
+
+function rCarga(el){
+  CS={fn:null,course:'',date:'',lineas:[],scores:{},lc:0};
+  el.innerHTML=`
+  <div class="ph"><h1>Cargar nueva fecha</h1><p>Subí las fotos de las tarjetas o ingresá los datos manualmente</p></div>
+  <div class="card" style="margin-bottom:20px">
+    <div class="ct">Datos de la fecha</div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Número de fecha</label>
+        <select class="fc" id="c-fn">${SCHED.map(s=>`<option value="${s.num}">Fecha ${s.num} — ${s.date}</option>`).join('')}</select>
+      </div>
+      <div class="fg"><label class="fl">Fecha (dd/mm/aaaa)</label><input type="text" class="fc" id="c-date" placeholder="05/06/2026"></div>
+    </div>
+    <div class="fg"><label class="fl">Cancha</label>
+      <select class="fc" id="c-course">${COURSES.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}<option value="new">+ Nueva cancha</option></select>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="sh"><h2>Subir tarjetas (fotos)</h2></div>
+    <div class="alert ai">Subí la foto de la tarjeta de cada jugador. El sistema extrae automáticamente el score y los datos de la cancha usando IA.</div>
+    <div class="uz" id="uz" onclick="document.getElementById('fi').click()"
+      ondragover="event.preventDefault();this.classList.add('dv')"
+      ondragleave="this.classList.remove('dv')"
+      ondrop="hDrop(event)">
+      <div style="font-size:32px;margin-bottom:10px">📸</div>
+      <div style="font-size:14px;font-weight:500">Arrastrá las fotos aquí o hacé click</div>
+      <div style="font-size:12px;color:var(--txm);margin-top:6px">JPG · PNG · HEIC · Podés subir varias a la vez</div>
+    </div>
+    <input type="file" id="fi" accept="image/*" multiple class="hidden" onchange="hFiles(this.files)">
+    <div id="uq" style="margin-top:16px"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="sh"><h2>Líneas de juego</h2><button class="btn btn-s btn-p" onclick="addL()">+ Agregar línea</button></div>
+    <div id="LC"><div class="alert ai">Agregá las líneas para la laguneada.</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="sh"><h2>Jugadores cargados</h2><button class="btn btn-s" onclick="openAddP()">+ Agregar manual</button></div>
+    <div id="PL"><div class="alert ai">Subí fotos o agregá jugadores manualmente.</div></div>
+  </div>
+
+  <div style="display:flex;gap:10px">
+    <button class="btn btn-p" onclick="saveF()">💾 Guardar fecha</button>
+    <button class="btn" onclick="nav('fechas')">Cancelar</button>
+  </div>`;
+}
+
+function hDrop(e){e.preventDefault();document.getElementById('uz').classList.remove('dv');hFiles(e.dataTransfer.files);}
+function hFiles(files){Array.from(files).forEach(f=>{const r=new FileReader();r.onload=ev=>analyzeImg(ev.target.result,f.name);r.readAsDataURL(f);});}
+
+async function analyzeImg(dataUrl,fname){
+  const safeId=fname.replace(/\W/g,'_');
+  const uq=document.getElementById('uq');
+  const div=document.createElement('div');
+  div.style.cssText='display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--bdr);border-radius:var(--rad);margin-bottom:8px;background:var(--bg)';
+  div.innerHTML=`<img src="${dataUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--bdr)">
+    <div style="flex:1"><div style="font-size:13px;font-weight:500">${fname}</div>
+    <div style="font-size:12px;color:var(--txm)" id="st-${safeId}">Analizando con IA...</div></div>
+    <div id="re-${safeId}"></div>`;
+  uq.appendChild(div);
+  const b64=dataUrl.split(',')[1];
+  const mt=dataUrl.split(';')[0].split(':')[1]||'image/jpeg';
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:mt,data:b64}},
+          {type:'text',text:`Analizá esta tarjeta de golf. Respondé SOLO con JSON válido, sin texto adicional:\n{"playerName":"nombre","hcp":numero,"gross":numero,"holes":[18 numeros enteros en orden hoyo 1 al 18],"idaTotal":numero,"vtaTotal":numero,"courseName":"nombre cancha o null","par":[18 numeros o null],"hdi":[18 numeros o null],"date":"dd/mm/aaaa o null"}\nSi no ves el dato, usá null. Scores son números enteros positivos.`}
+        ]}]})});
+    const data=await resp.json();
+    const txt=data.content?.map(c=>c.text||'').join('').replace(/```json|```/g,'').trim();
+    const parsed=JSON.parse(txt);
+    const matched=matchP(parsed.playerName);
+    const pid=matched?matched.id:'r_'+Date.now();
+    const hcp=parsed.hcp??matched?.hcp??0;
+    CS.scores[pid]={hcp,holes:parsed.holes||new Array(18).fill(0),
+      h19:false,approach:false,hoyoEnUno:false,noApp:false,noCard:false,abandon:false,noShow:false,
+      name:parsed.playerName||'Desconocido',isReplace:!matched};
+    // update course if we have par/hdi data
+    const cid=document.getElementById('c-course')?.value;
+    if(parsed.par?.every(p=>p!=null)&&parsed.hdi?.every(h=>h!=null)){
+      const ex=COURSES.find(c=>c.id===cid);
+      if(ex){ex.par=parsed.par;ex.hdi=parsed.hdi;}
+    }
+    document.getElementById(`st-${safeId}`).textContent=matched
+      ?`✓ ${matched.name} — HCP ${hcp} — Gross ${parsed.gross}`
+      :`⚠ "${parsed.playerName}" no está en el plantel — cargado como reemplazante`;
+    document.getElementById(`st-${safeId}`).style.color=matched?'var(--g7)':'var(--a6)';
+    document.getElementById(`re-${safeId}`).innerHTML=`<button class="btn btn-s" onclick="openSM('${pid}')">Revisar</button>`;
+    rPL();
+  }catch(err){
+    document.getElementById(`st-${safeId}`).textContent=`Error: ${err.message}. Ingresá manualmente.`;
+    document.getElementById(`st-${safeId}`).style.color='var(--r8)';
+    document.getElementById(`re-${safeId}`).innerHTML=`<button class="btn btn-s" onclick="openAddP()">Manual</button>`;
+  }
+}
+
+function matchP(name){
+  if(!name) return null;
+  const n=name.toLowerCase().trim();
+  return TP.find(p=>{
+    const pn=p.name.toLowerCase(),ps=p.short.toLowerCase();
+    const last=pn.split(' ').pop(),nLast=n.split(' ').pop();
+    return pn.includes(n)||n.includes(pn)||last===nLast||ps===n||n.includes(last);
+  });
+}
+
+function addL(){
+  CS.lc++;const num=CS.lc;
+  const lc=document.getElementById('LC');
+  if(lc.querySelector('.alert')) lc.innerHTML='';
+  const d=document.createElement('div');
+  d.id=`L-${num}`;d.style.cssText='border:1px solid var(--bdr);border-radius:var(--rad);padding:14px;margin-bottom:10px';
+  d.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <strong>Línea ${num}</strong><button class="btn btn-s btn-d" onclick="remL(${num})">Eliminar</button>
+  </div>
+  <div class="fg"><label class="fl">Horario</label><input type="text" class="fc" id="h-${num}" placeholder="12:00" style="max-width:140px"></div>
+  <div style="font-size:12px;color:var(--tx2)">Jugadores: se asignan al cargar sus tarjetas</div>`;
+  lc.appendChild(d);
+  if(!CS.lineas.find(l=>l.num===num)) CS.lineas.push({num,hora:'',pids:[]});
+}
+function remL(n){document.getElementById(`L-${n}`)?.remove();CS.lineas=CS.lineas.filter(l=>l.num!==n);}
+
+function openAddP(){
+  const added=Object.keys(CS.scores).map(Number).filter(n=>!isNaN(n));
+  const avail=TP.filter(p=>!added.includes(p.id));
+  document.getElementById('MOD').innerHTML=`<div class="mo" onclick="closeM(event)"><div class="md">
+    <div class="mh"><h3>Agregar jugador</h3><button class="mc-btn" onclick="closeMD()">×</button></div>
+    <div class="mb">
+      <div class="fg"><label class="fl">Jugador</label>
+        <select class="fc" id="mp" onchange="onPS(this)">
+          ${avail.map(p=>`<option value="${p.id}">${p.name} (hcp ${p.hcp!=null?p.hcp:'TBD'})</option>`).join('')}
+          <option value="new">+ Reemplazante (no suma al ranking)</option>
+        </select>
+      </div>
+      <div id="nf" class="hidden"><div class="fg"><label class="fl">Nombre</label><input class="fc" id="mn" placeholder="Nombre completo"></div></div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Línea</label><select class="fc" id="ml">${CS.lineas.length?CS.lineas.map(l=>`<option value="${l.num}">Línea ${l.num}</option>`).join(''):'<option value="1">Línea 1</option>'}</select></div>
+        <div class="fg"><label class="fl">HCP esta fecha</label><input class="fc" id="mh" type="number" placeholder="26"></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn" onclick="closeMD()">Cancelar</button><button class="btn btn-p" onclick="confAddP()">Agregar</button></div>
+  </div></div>`;
+}
+function onPS(s){
+  document.getElementById('nf').classList.toggle('hidden',s.value!=='new');
+  if(s.value!=='new'){const p=TP.find(x=>x.id===parseInt(s.value));if(p&&p.hcp!=null)document.getElementById('mh').value=p.hcp;}
+}
+function confAddP(){
+  const sel=document.getElementById('mp').value;
+  const ln=parseInt(document.getElementById('ml').value)||1;
+  const hcp=parseInt(document.getElementById('mh').value)||0;
+  let pid,name,isReplace=false;
+  if(sel==='new'){pid='r_'+Date.now();name=document.getElementById('mn').value||'Reemplazante';isReplace=true;}
+  else{pid=parseInt(sel);name=TP.find(x=>x.id===pid)?.name||'?';}
+  const l=CS.lineas.find(x=>x.num===ln);
+  if(l&&!l.pids.includes(pid)) l.pids.push(pid);
+  CS.scores[pid]={hcp,holes:new Array(18).fill(0),h19:false,approach:false,hoyoEnUno:false,noApp:false,noCard:false,abandon:false,noShow:false,name,isReplace};
+  closeMD();rPL();
+}
+
+function rPL(){
+  const el=document.getElementById('PL');
+  const pids=Object.keys(CS.scores);
+  if(!pids.length){el.innerHTML=`<div class="alert ai">Sin jugadores.</div>`;return;}
+  const cid=document.getElementById('c-course')?.value||'cnsi';
+  const c=getCourse(cid);
+  el.innerHTML=pids.map(pid=>{
+    const sc=CS.scores[pid];
+    const p=getPlayer(pid);
+    const name=p?.name||sc.name||'?';
+    const has=sc.holes?.some(h=>h>0);
+    const g=has?gross(sc.holes):0;
+    const s=has?stb(sc.holes,sc.hcp,c.par,c.hdi):0;
+    return`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;border:1px solid var(--bdr);border-radius:var(--rad);margin-bottom:8px">
+      <div><strong>${name}</strong>${sc.isReplace?'<span class="bdg ba" style="margin-left:6px;font-size:10px">Reemplazante</span>':''}
+        <div style="font-size:12px;color:var(--txm);margin-top:2px">HCP: ${sc.hcp}${has?` · Gross: ${g} · STB: ${s}`:' · Sin score'}</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-s" onclick="openSM('${pid}')">${has?'Editar':'Cargar score'}</button>
+        <button class="btn btn-s btn-d" onclick="remP('${pid}')">×</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function remP(pid){delete CS.scores[pid];CS.lineas.forEach(l=>{l.pids=l.pids.filter(x=>x!=pid);});rPL();}
+
+function openSM(pid){
+  const sc=CS.scores[pid];
+  const p=getPlayer(pid);
+  const name=p?.name||sc.name||'?';
+  const cid=document.getElementById('c-course')?.value||'cnsi';
+  const c=getCourse(cid);
+  document.getElementById('MOD').innerHTML=`<div class="mo" onclick="closeM(event)"><div class="md" style="max-width:860px">
+    <div class="mh"><h3>Tarjeta — ${name}</h3><button class="mc-btn" onclick="closeMD()">×</button></div>
+    <div class="mb">
+      <div class="fg"><label class="fl">HCP esta fecha</label><input class="fc" id="sh" type="number" value="${sc.hcp}" style="max-width:120px" oninput="updPrev()"></div>
+      <div style="font-size:12px;color:var(--tx2);margin-bottom:8px;font-weight:500">Hoyos 1–9</div>
+      <div class="sg" style="margin-bottom:12px">
+        ${c.par.slice(0,9).map((par,i)=>`<div class="sc-in"><div class="hn">${i+1}</div>
+          <input type="number" min="1" max="15" id="sh${i+1}" value="${sc.holes[i]>0?sc.holes[i]:''}" placeholder="${par}" oninput="cSI(this,${par});updPrev()">
+          <div class="hp">p${par}</div></div>`).join('')}
+      </div>
+      <div style="font-size:12px;color:var(--tx2);margin-bottom:8px;font-weight:500">Hoyos 10–18</div>
+      <div class="sg">
+        ${c.par.slice(9).map((par,i)=>`<div class="sc-in"><div class="hn">${i+10}</div>
+          <input type="number" min="1" max="15" id="sh${i+10}" value="${sc.holes[i+9]>0?sc.holes[i+9]:''}" placeholder="${par}" oninput="cSI(this,${par});updPrev()">
+          <div class="hp">p${par}</div></div>`).join('')}
+      </div>
+      <div class="div"></div>
+      <div style="font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:10px">Eventos especiales</div>
+      <div class="ev-row">
+        <div class="ev-tog ${sc.h19?'on':''}" id="ev-h19" onclick="this.classList.toggle('on')">Hoyo 19 (+1)</div>
+        <div class="ev-tog ${sc.approach?'on':''}" id="ev-approach" onclick="this.classList.toggle('on')">Mejor approach (+2)</div>
+        <div class="ev-tog ${sc.hoyoEnUno?'on':''}" id="ev-hoyoEnUno" onclick="this.classList.toggle('on')">Hoyo en uno (+12)</div>
+        <div class="ev-tog pen ${sc.noApp?'on':''}" id="ev-noApp" onclick="this.classList.toggle('on')">No cargó app (−1)</div>
+        <div class="ev-tog pen ${sc.noCard?'on':''}" id="ev-noCard" onclick="this.classList.toggle('on')">No presentó tarjeta (−2)</div>
+        <div class="ev-tog pen ${sc.abandon?'on':''}" id="ev-abandon" onclick="this.classList.toggle('on')">Abandono (−3)</div>
+        <div class="ev-tog pen ${sc.noShow?'on':''}" id="ev-noShow" onclick="this.classList.toggle('on')">No se presentó (−4)</div>
+      </div>
+      <div id="prev" style="margin-top:16px;padding:12px;background:var(--gray0);border-radius:var(--rad);font-size:13px;color:var(--tx2)">Ingresá scores para ver resumen.</div>
+    </div>
+    <div class="mf"><button class="btn" onclick="closeMD()">Cancelar</button><button class="btn btn-p" onclick="saveSM('${pid}')">Guardar tarjeta</button></div>
+  </div></div>`;
+  c.par.forEach((par,i)=>{const inp=document.getElementById(`sh${i+1}`);if(inp&&sc.holes[i]>0)cSI(inp,par);});
+  updPrev();
+}
+
+function cSI(inp,par){
+  const v=parseInt(inp.value);
+  if(!isNaN(v)){
+    if(v<=par-2)      inp.style.cssText='background:var(--a0);color:var(--a8);border-color:var(--a1)';
+    else if(v===par-1)inp.style.cssText='background:var(--g0);color:var(--g8);border-color:var(--g1)';
+    else if(v===par)  inp.style.cssText='';
+    else if(v===par+1)inp.style.cssText='background:var(--b0);color:var(--b8);border-color:var(--b2)';
+    else              inp.style.cssText='background:var(--r0);color:var(--r8);border-color:var(--r2)';
+  }
+}
+function updPrev(){
+  const el=document.getElementById('prev');if(!el)return;
+  const cid=document.getElementById('c-course')?.value||'cnsi';
+  const c=getCourse(cid);
+  const holes=[],hcp=parseInt(document.getElementById('sh')?.value)||0;
+  for(let i=1;i<=18;i++){const v=parseInt(document.getElementById(`sh${i}`)?.value);holes.push(isNaN(v)?c.par[i-1]:v);}
+  const g=gross(holes),n=neto(holes,hcp),s=stb(holes,hcp,c.par,c.hdi);
+  const pt=c.par.reduce((a,b)=>a+b,0),vp=n-pt;
+  el.innerHTML=`Gross: <strong>${g}</strong> &nbsp;·&nbsp; Neto: <strong>${n}</strong> &nbsp;·&nbsp; vs Par: <strong>${vp>=0?'+'+vp:vp}</strong> &nbsp;·&nbsp; <span style="color:var(--g7);font-weight:600">Stableford: ${s} pts</span>`;
+}
+function saveSM(pid){
+  const cid=document.getElementById('c-course')?.value||'cnsi';
+  const c=getCourse(cid);
+  const holes=[],hcp=parseInt(document.getElementById('sh').value)||0;
+  for(let i=1;i<=18;i++){const v=parseInt(document.getElementById(`sh${i}`)?.value);holes.push(isNaN(v)?0:v);}
+  const evs=['h19','approach','hoyoEnUno','noApp','noCard','abandon','noShow'];
+  const ev={};evs.forEach(id=>{ev[id]=document.getElementById('ev-'+id)?.classList.contains('on')||false;});
+  if(CS.scores[pid]) Object.assign(CS.scores[pid],{hcp,holes,...ev});
+  closeMD();rPL();
+}
+function saveF(){
+  const fn=parseInt(document.getElementById('c-fn').value);
+  const course=document.getElementById('c-course').value;
+  const date=document.getElementById('c-date').value;
+  CS.lineas.forEach(l=>{const h=document.getElementById(`h-${l.num}`);if(h)l.hora=h.value;});
+  FD[fn]={fecha:fn,course,date,lineas:JSON.parse(JSON.stringify(CS.lineas)),scores:{...CS.scores}};
+  const sc=SCHED.find(s=>s.num===fn);if(sc){sc.status='played';if(course)sc.course=course;}
+  alert(`✓ Fecha ${fn} guardada.`);nav('fechas');
+}
+
+// ════════════════════════════════════════════════════
+// JUGADORES
+// ════════════════════════════════════════════════════
+function rJug(el){
+  const tf=Object.keys(FD).length;
+  el.innerHTML=`
+  <div class="ph"><h1>Plantel 2026</h1><p>12 jugadores titulares — reemplazantes no suman al ranking</p></div>
+  <div class="card"><table>
+    <thead><tr><th>#</th><th>Jugador</th><th>HCP índex</th><th>Matrícula AAG</th><th>Rondas</th><th>Hoyo 19</th><th>Estado</th></tr></thead>
+    <tbody>${TP.map((p,i)=>{
+      const st=getPlayerStats(p.id);
+      const cls=['l1b','l2b','bb','ba','bg','bp'][i%6];
+      return`<tr>
+        <td><div style="width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600" class="${cls}">${p.ini}</div></td>
+        <td><strong>${p.name}</strong></td>
+        <td style="font-family:'DM Mono',monospace">${p.hcp!=null?p.hcp:'<span class="bdg ba">TBD</span>'}</td>
+        <td style="font-size:12px;color:var(--txm)">${p.mat}</td>
+        <td>${st.asist}/${tf}</td><td>${st.h19c}</td>
+        <td><span class="bdg bg">Activo</span></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+
+// ════════════════════════════════════════════════════
+// ESTADÍSTICAS
+// ════════════════════════════════════════════════════
+function rStats(el){
+  el.innerHTML=`
+  <div class="ph"><h1>Estadísticas</h1><p>Resultados brutos (gross vs par, sin HCP) — acumulados por fecha</p></div>
+  <div class="tabs">
+    <div class="tab active" onclick="swST('gen',this)">General</div>
+    <div class="tab" onclick="swST('dist',this)">Distribución</div>
+    <div class="tab" onclick="swST('asist',this)">Asistencia</div>
+  </div>
+  <div id="SC"></div>`;
+  rST('gen');
+}
+function swST(m,el){document.querySelectorAll('#MC .tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');rST(m);}
+
+function pctColor(pct){
+  // Color by percentage: >80% green, 60-80 amber, <60 red
+  if(pct>=80) return 'var(--g6)';
+  if(pct>=60) return 'var(--a6)';
+  return 'var(--r8)';
+}
+
+function rST(mode){
+  const el=document.getElementById('SC');
+  const rows=TP.map(p=>({p,st:getPlayerStats(p.id)})).filter(r=>r.st.rounds>0);
+  const tf=Object.keys(FD).length||1;
+
+  if(mode==='gen'){
+    // Per-player summary table with gross stats
+    const totalHoles=rows.reduce((s,r)=>s+r.st.rounds*18,0);
+    el.innerHTML=`
+    <div class="mg" style="margin-bottom:20px">
+      <div class="mc"><div class="ml">Rondas totales</div><div class="mv">${rows.reduce((s,r)=>s+r.st.rounds,0)}</div></div>
+      <div class="mc"><div class="ml">Birdies brutos</div><div class="mv">${rows.reduce((s,r)=>s+r.st.gbirdies,0)}</div></div>
+      <div class="mc"><div class="ml">Eagles brutos</div><div class="mv">${rows.reduce((s,r)=>s+r.st.geagles,0)}</div></div>
+      <div class="mc"><div class="ml">Hoyos jugados</div><div class="mv">${totalHoles}</div></div>
+    </div>
+    <div class="card">
+      <div class="ct">Resultados brutos (gross vs par) por jugador — acumulado</div>
+      <div class="tw"><table>
+        <thead><tr>
+          <th>Jugador</th><th>Fechas</th>
+          <th style="color:var(--a6)">Eagle−2</th>
+          <th style="color:var(--g7)">Birdie−1</th>
+          <th>Par</th>
+          <th style="color:var(--b8)">Bogey+1</th>
+          <th>Dbl+</th>
+          <th>% buenos*</th>
+          <th>Avg gross</th><th>Avg STB</th>
+        </tr></thead>
+        <tbody>${rows.map(({p,st})=>{
+          const tot=st.rounds*18||1;
+          const buenos=st.geagles+st.gbirdies+st.gpars;
+          const pctBuenos=Math.round(buenos/tot*100);
+          const col=pctColor(pctBuenos);
+          return`<tr>
+            <td><strong>${p.name}</strong></td><td>${st.rounds}</td>
+            <td style="text-align:center">${st.geagles>0?`<span class="bdg ba">${st.geagles}</span>`:'—'}</td>
+            <td style="text-align:center">${st.gbirdies>0?`<span class="bdg bg">${st.gbirdies}</span>`:'—'}</td>
+            <td style="text-align:center">${st.gpars}</td>
+            <td style="text-align:center">${st.gbogeys>0?`<span class="bdg bb">${st.gbogeys}</span>`:'—'}</td>
+            <td style="text-align:center">${st.gdbls+st.gworse}</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:6px">
+                <div style="flex:1;height:5px;background:var(--gray1);border-radius:99px;overflow:hidden;min-width:60px">
+                  <div style="width:${pctBuenos}%;height:100%;background:${col};border-radius:99px;transition:width .4s"></div>
+                </div>
+                <span style="font-size:12px;font-weight:500;color:${col};min-width:32px">${pctBuenos}%</span>
+              </div>
+            </td>
+            <td>${mono(st.avgGross||'—')}</td>
+            <td>${st.avgStb?stb_badge(st.avgStb):'—'}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>
+      <div style="font-size:11px;color:var(--txm);margin-top:10px">* % buenos = eagle + birdie + par sobre el total de hoyos (gross, sin hcp)</div>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <div class="ct">Evolución por fecha — score gross</div>
+      ${rows.map(({p,st})=>{
+        if(!st.fechaDetail.length) return '';
+        return`<div style="margin-bottom:18px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <span style="font-size:13px;font-weight:500">${p.name}</span>
+            <div style="display:flex;gap:8px">
+              ${st.fechaDetail.map(f=>`<div style="text-align:center">
+                <div style="font-size:10px;color:var(--txm);margin-bottom:2px">F${f.fn}</div>
+                <div style="font-size:13px;font-family:'DM Mono',monospace;font-weight:500">${f.gross}</div>
+                <div style="font-size:10px;color:var(--txm)">${stb_badge(f.stb)}</div>
+              </div>`).join('')}
+            </div>
+          </div>
+          <div style="display:flex;gap:2px;align-items:flex-end;height:40px">
+            ${(()=>{
+              const maxG=Math.max(...st.fechaDetail.map(f=>f.gross));
+              const minG=Math.min(...st.fechaDetail.map(f=>f.gross));
+              const range=maxG-minG||1;
+              return st.fechaDetail.map(f=>{
+                const h=Math.round(((f.gross-minG)/range)*30+10);
+                return`<div style="flex:1;height:${h}px;background:var(--g4);border-radius:3px 3px 0 0;position:relative" title="F${f.fn}: ${f.gross}"></div>`;
+              }).join('');
+            })()}
+            ${[...Array(6-st.fechaDetail.length)].map((_,i)=>`<div style="flex:1;height:10px;background:var(--gray1);border-radius:3px 3px 0 0;opacity:.4"></div>`).join('')}
+          </div>
+          <div style="height:2px;background:var(--bdr);margin-top:0;border-radius:0 0 3px 3px"></div>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  } else if(mode==='dist'){
+    el.innerHTML=`
+    <div class="card">
+      <div class="ct">Distribución de golpes brutos por jugador</div>
+      ${rows.map(({p,st})=>{
+        const tot=st.rounds*18||1;
+        const items=[
+          {l:'Eagles',v:st.geagles,c:'var(--a4)'},{l:'Birdies',v:st.gbirdies,c:'var(--g6)'},
+          {l:'Pares',v:st.gpars,c:'var(--gray2)'},{l:'Bogeys',v:st.gbogeys,c:'var(--b2)'},
+          {l:'Dbl+',v:st.gdbls+st.gworse,c:'var(--r2)'},
+        ];
+        const buenos=st.geagles+st.gbirdies+st.gpars;
+        const pctBuenos=Math.round(buenos/tot*100);
+        return`<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--bdr)">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+            <span style="font-size:13px;font-weight:500">${p.name}</span>
+            <div style="display:flex;gap:12px;align-items:center">
+              <span style="font-size:11px;color:var(--txm)">${tot} hoyos · ${st.rounds} rondas</span>
+              <span style="font-size:12px;font-weight:600;color:${pctColor(pctBuenos)}">${pctBuenos}% buenos</span>
+            </div>
+          </div>
+          <div style="display:flex;height:10px;border-radius:99px;overflow:hidden;gap:1px">
+            ${items.map(x=>x.v>0?`<div style="width:${(x.v/tot*100).toFixed(1)}%;background:${x.c}" title="${x.l}: ${x.v} (${(x.v/tot*100).toFixed(1)}%)"></div>`:'').join('')}
+          </div>
+          <div style="display:flex;gap:12px;margin-top:5px;flex-wrap:wrap">
+            ${items.map(x=>{
+              const pct=(x.v/tot*100).toFixed(1);
+              return`<span style="font-size:11px;color:var(--txm);display:flex;align-items:center;gap:4px">
+                <span style="width:8px;height:8px;border-radius:50%;background:${x.c};display:inline-block;flex-shrink:0"></span>
+                ${x.l}: <strong>${x.v}</strong> <span style="opacity:.7">(${pct}%)</span>
+              </span>`;
+            }).join('')}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  } else {
+    // ASISTENCIA
+    el.innerHTML=`<div class="card">
+    <div class="ct">Asistencia al torneo y hoyo 19</div>
+    <table><thead><tr>
+      <th>Jugador</th>
+      ${[...Array(6)].map((_,i)=>`<th style="text-align:center">F${i+1}</th>`).join('')}
+      <th>Asist.</th><th>%</th><th>Hoyo 19</th>
+    </tr></thead>
+    <tbody>${TP.map(p=>{
+      const st=getPlayerStats(p.id);
+      const fechasAsist=new Set(st.fechaDetail.map(f=>f.fn));
+      const cells=[...Array(6)].map((_,i)=>{
+        const fn=i+1;
+        if(!FD[fn]) return`<td style="text-align:center;color:var(--txm)">—</td>`;
+        const present=fechasAsist.has(fn);
+        const h19=present&&FD[fn].scores[p.id]?.h19;
+        return`<td style="text-align:center">${present?(h19?'<span title="Presente + Hoyo 19">✅</span>':'<span title="Presente">🟢</span>'):'<span title="Ausente">⬜</span>'}</td>`;
+      }).join('');
+      const pct=Math.round(st.asist/tf*100);
+      const col=pctColor(pct);
+      return`<tr>
+        <td>${p.name}</td>
+        ${cells}
+        <td style="text-align:center;font-weight:500">${st.asist}/${tf}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="width:60px;height:5px;background:var(--gray1);border-radius:99px;overflow:hidden">
+              <div style="width:${pct}%;height:100%;background:${col};border-radius:99px"></div>
+            </div>
+            <span style="font-size:12px;font-weight:500;color:${col}">${pct}%</span>
+          </div>
+        </td>
+        <td>${st.h19c>0?`<span class="bdg bg">+${st.h19c} pts</span>`:st.rounds>0?'0':'—'}</td>
+      </tr>`;
+    }).join('')}</tbody></table></div>`;
+  }
+}
+
+// ════════════════════════════════════════════════════
+// CANCHAS
+// ════════════════════════════════════════════════════
+function rCanchas(el){
+  el.innerHTML=`
+  <div class="ph"><h1>Canchas</h1><p>Datos cargados automáticamente desde las tarjetas o manualmente</p></div>
+  ${COURSES.map(c=>{
+    const pt=c.par.reduce((a,b)=>a+b,0);
+    const pi=c.par.slice(0,9).reduce((a,b)=>a+b,0);
+    const pv=c.par.slice(9).reduce((a,b)=>a+b,0);
+    return`<div class="card" style="margin-bottom:20px">
+      <div class="sh"><h2>${c.name}</h2><div style="display:flex;gap:8px"><span class="bdg bgr">Par ${pt}</span><span class="bdg bb">Slope ${c.slope}</span><span class="bdg bg">Rating ${c.rating}</span></div></div>
+      <div class="sct"><table>
+        <thead><tr><th>Hoyo</th>${c.par.map((_,i)=>`<th>${i+1}</th>`).join('')}<th>IDA</th><th>VTA</th><th>TOT</th></tr></thead>
+        <tbody>
+          <tr><td style="font-size:12px;color:var(--tx2)">Par</td>${c.par.map(p=>`<td style="font-family:'DM Mono',monospace;font-weight:500">${p}</td>`).join('')}<td><strong>${pi}</strong></td><td><strong>${pv}</strong></td><td><strong>${pt}</strong></td></tr>
+          <tr><td style="font-size:12px;color:var(--tx2)">HCP</td>${c.hdi.map(h=>`<td style="font-size:11px;color:var(--txm);font-family:'DM Mono',monospace">${h}</td>`).join('')}<td colspan="3"></td></tr>
+        </tbody>
+      </table></div>
+    </div>`;
+  }).join('')}
+  <button class="btn btn-p" onclick="openAddC()">+ Agregar cancha manualmente</button>`;
+}
+function openAddC(){
+  document.getElementById('MOD').innerHTML=`<div class="mo" onclick="closeM(event)"><div class="md">
+    <div class="mh"><h3>Agregar cancha</h3><button class="mc-btn" onclick="closeMD()">×</button></div>
+    <div class="mb">
+      <div class="fr">
+        <div class="fg"><label class="fl">Nombre del club</label><input class="fc" id="cn" placeholder="Club de Golf XYZ"></div>
+        <div class="fg"><label class="fl">Ciudad</label><input class="fc" id="cc" placeholder="Buenos Aires"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Rating</label><input class="fc" id="crt" type="number" step="0.1" placeholder="68.1"></div>
+        <div class="fg"><label class="fl">Slope</label><input class="fc" id="csl" type="number" placeholder="113"></div>
+      </div>
+      <div style="font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:8px">Par por hoyo</div>
+      <div class="sg" style="margin-bottom:10px">${[...Array(18)].map((_,i)=>`<div class="sc-in"><div class="hn">${i+1}</div><input type="number" min="3" max="6" id="cp${i+1}" placeholder="4"></div>`).join('')}</div>
+      <div style="font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:8px">HCP por hoyo (1=más difícil)</div>
+      <div class="sg">${[...Array(18)].map((_,i)=>`<div class="sc-in"><div class="hn">${i+1}</div><input type="number" min="1" max="18" id="ch${i+1}" placeholder="${i+1}"></div>`).join('')}</div>
+    </div>
+    <div class="mf"><button class="btn" onclick="closeMD()">Cancelar</button><button class="btn btn-p" onclick="saveC()">Guardar</button></div>
+  </div></div>`;
+}
+function saveC(){
+  COURSES.push({
+    id:'c_'+Date.now(),
+    name:document.getElementById('cn').value||'Nueva cancha',
+    city:document.getElementById('cc').value||'',
+    rating:parseFloat(document.getElementById('crt').value)||68.0,
+    slope:parseInt(document.getElementById('csl').value)||113,
+    par:[...Array(18)].map((_,i)=>parseInt(document.getElementById(`cp${i+1}`).value)||4),
+    hdi:[...Array(18)].map((_,i)=>parseInt(document.getElementById(`ch${i+1}`).value)||(i+1)),
+  });
+  closeMD();nav('canchas');
+}
+
+nav('dashboard');
+</script>
+</body>
+</html>
