@@ -2,8 +2,13 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Torneo Golf 26</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#04342C">
+<link rel="apple-touch-icon" href="/icon.svg">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -122,6 +127,207 @@ tr:hover td{background:var(--gray0)}
 .sbo{background:var(--b0)!important;color:var(--b8)!important}
 .sd{background:#E8F0FF!important;color:#1a3a8f!important}
 .sw{background:var(--r0)!important;color:var(--r8)!important}
+
+/* Responsive adjustments for Mobile Web App (PWA) */
+.bottom-nav {
+  display: none;
+}
+.more-drawer {
+  display: none;
+}
+@media (max-width: 768px) {
+  body {
+    font-size: 13px;
+  }
+  .sb {
+    display: none !important;
+  }
+  .main {
+    margin-left: 0 !important;
+    padding: 16px 12px 90px !important; /* Bottom padding for bottom-nav */
+    max-width: 100%;
+  }
+  .ph h1 {
+    font-size: 22px;
+  }
+  .ph p {
+    font-size: 12px;
+  }
+  .g2 {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  .mg {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)) !important;
+    gap: 10px !important;
+  }
+  .card {
+    padding: 16px !important;
+    border-radius: 12px !important;
+  }
+  
+  /* Mobile Bottom Navigation Bar */
+  .bottom-nav {
+    display: flex !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: var(--g9);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    z-index: 1000;
+    justify-content: space-around;
+    align-items: center;
+    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.15);
+  }
+  .nav-item-mobile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    gap: 3px;
+    flex: 1;
+    height: 100%;
+    transition: all 0.15s ease;
+  }
+  .nav-item-mobile span {
+    font-size: 18px;
+    line-height: 1;
+  }
+  .nav-item-mobile.active {
+    color: var(--g4);
+  }
+  .nav-item-mobile.active span {
+    transform: scale(1.1);
+  }
+
+  /* Bottom sheet drawer for "More Options" */
+  .more-drawer {
+    display: flex !important;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 1100;
+    align-items: flex-end;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .more-drawer.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .drawer-content {
+    background: var(--surf);
+    width: 100%;
+    max-width: 480px;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    padding: 20px 20px calc(24px + env(safe-area-inset-bottom));
+    transform: translateY(100%);
+    transition: transform 0.25s cubic-bezier(0.1, 0.76, 0.55, 0.94);
+    box-shadow: 0 -8px 24px rgba(0,0,0,0.15);
+  }
+  .more-drawer.open .drawer-content {
+    transform: translateY(0);
+  }
+  .drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--bdr);
+    padding-bottom: 12px;
+  }
+  .drawer-header h4 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--gray9);
+    font-family: 'Outfit', sans-serif;
+  }
+  .drawer-header button {
+    background: none;
+    border: none;
+    font-size: 26px;
+    color: var(--gray4);
+    cursor: pointer;
+    line-height: 1;
+  }
+  .drawer-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .drawer-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: var(--bg);
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--tx);
+    transition: background 0.15s;
+    border: 1px solid var(--bdr);
+  }
+  .drawer-item:hover {
+    background: var(--gray0);
+  }
+  
+  /* Tables scrolling and spacing on mobile */
+  .tw table {
+    font-size: 12px;
+  }
+  th, td {
+    padding: 7px 8px !important;
+  }
+  .pos {
+    width: 22px;
+    height: 22px;
+    font-size: 10px;
+  }
+  .sg {
+    gap: 4px !important;
+  }
+  .sc-in input {
+    font-size: 12px !important;
+    padding: 5px 1px !important;
+  }
+  .sc-in .hn, .sc-in .hp {
+    font-size: 9px !important;
+  }
+  .ev-row {
+    gap: 6px !important;
+  }
+  .ev-tog {
+    padding: 5px 10px !important;
+    font-size: 11px !important;
+  }
+}
+@keyframes pulse {
+  0% { opacity: 0.75; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  70% { opacity: 1; box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { opacity: 0.75; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+.pulse-live {
+  animation: pulse 1.8s infinite ease-in-out;
+}
+.fc-s {
+  padding: 4px 8px !important;
+  font-size: 12px !important;
+  border-radius: 6px !important;
+}
 </style>
 </head>
 <body>
@@ -133,22 +339,248 @@ tr:hover td{background:var(--gray0)}
   <div class="ni" onclick="nav('ranking')">🏆 <span>Rankings</span></div>
   <div class="nav-sec">Fechas</div>
   <div class="ni" onclick="nav('fechas')">📅 <span>Ver fechas</span></div>
-  <div class="ni" onclick="nav('carga')">✏️ <span>Cargar fecha</span></div>
+  <div class="ni" onclick="nav('live')">⛳ <span>Anotar en Vivo</span></div>
+  <div class="ni hidden" id="ni-sb-carga" onclick="nav('carga')">✏️ <span>Cargar fecha</span></div>
   <div class="nav-sec">Jugadores</div>
   <div class="ni" onclick="nav('jugadores')">👤 <span>Plantel</span></div>
   <div class="ni" onclick="nav('stats')">📊 <span>Estadísticas</span></div>
   <div class="nav-sec">Config</div>
   <div class="ni" onclick="nav('canchas')">🗺️ <span>Canchas</span></div>
+  
+  <div style="margin-top:auto;padding:16px 12px;border-top:1px solid rgba(255,255,255,.08)">
+    <div class="ni" onclick="openAdminModal()" id="ni-admin-btn" style="color:var(--a1)">🔒 <span>Admin</span></div>
+  </div>
 </nav>
 <main class="main" id="MC"></main>
 </div>
+
 <div id="MOD"></div>
 
+<nav class="bottom-nav">
+  <!-- Se renderiza dinámicamente según rol (Admin vs Jugador) -->
+</nav>
+
+<div id="more-drawer" class="more-drawer" onclick="closeMoreMenu(event)">
+  <div class="drawer-content">
+    <div class="drawer-header">
+      <h4>Más Opciones</h4>
+      <button onclick="closeMoreMenuForce()">×</button>
+    </div>
+    <div class="drawer-body">
+      <!-- Se renderiza dinámicamente -->
+    </div>
+  </div>
+</div>
+
 <script>
+// Error catching overlay for easy debugging on mobile and without console access
+window.addEventListener('error', function(e) {
+  showErrorOverlay(e.error || new Error(e.message));
+});
+window.addEventListener('unhandledrejection', function(e) {
+  showErrorOverlay(e.reason || new Error("Promise rejected"));
+});
+
+function showErrorOverlay(err) {
+  let overlay = document.getElementById('error-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'error-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(20,0,0,0.95);color:#ff5f5f;z-index:999999;padding:24px;box-sizing:border-box;font-family:monospace;overflow-y:auto;display:flex;flex-direction:column;';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = `
+    <h2 style="color:#ff8f8f;margin-top:0;">⚠️ Se detectó un error en la aplicación</h2>
+    <p style="color:#ffffff;margin-bottom:16px;">Para ayudarnos a solucionarlo, por favor sácale una captura a esta pantalla y compártela:</p>
+    <div style="background:#2a0505;border:1px solid #ff5f5f;padding:12px;border-radius:6px;flex:1;overflow:auto;white-space:pre-wrap;font-size:13px;margin-bottom:16px;color:#ffcdcd;">${err && err.stack ? err.stack : err}</div>
+    <button onclick="document.getElementById('error-overlay').remove()" style="padding:10px 20px;background:#ff5f5f;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:14px;align-self:flex-start;">Cerrar esta advertencia</button>
+  `;
+}
+
+// Safe storage wrapper to prevent crashes on file:// protocol in restrictive browsers
+const storage = {
+  get(key) {
+    try { return localStorage.getItem(key); } catch (e) { return this._mem[key] || null; }
+  },
+  set(key, val) {
+    try { localStorage.setItem(key, val); } catch (e) { this._mem[key] = val; }
+  },
+  remove(key) {
+    try { localStorage.removeItem(key); } catch (e) { delete this._mem[key]; }
+  },
+  _mem: {}
+};
+
+let IS_ADMIN = storage.get('golf_is_admin') === 'true';
+let APPS_SCRIPT_URL = storage.get('golf_apps_script_url') || '';
+const SPREADSHEET_ID = "1h_R6k50cU3W9e8E-53nxmpmCHd771uTh2erYE5lw5pk"; // Ingresa el ID de tu Google Sheet publicado
+
+// GIDs de cada hoja en tu Google Sheet (modificar si los de tu planilla varían)
+const GIDS = {
+  jugadores: "0",
+  canchas: "11111111", // Reemplazar con el GID real de tu pestaña 'canchas'
+  calendario: "22222222", // Reemplazar con el GID real de tu pestaña 'calendario'
+  salidas: "33333333", // Reemplazar con el GID real de tu pestaña 'salidas'
+  resultados: "44444444" // Reemplazar con el GID real de tu pestaña 'resultados'
+};
+
+// Función para parsear CSV a objetos JSON de manera limpia y robusta
+function parseCSV(text) {
+  if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
+    throw new Error("Se recibió HTML en lugar de CSV. Asegúrate de publicar la planilla en la web (Archivo > Compartir > Publicar en la web).");
+  }
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return [];
+  
+  // Parsear la cabecera
+  const headers = lines[0].split(",").map(h => h.replace(/^"|"$/g, "").trim());
+  
+  return lines.slice(1).map(line => {
+    let fields = [];
+    let insideQuote = false;
+    let currentField = "";
+    
+    for (let char of line) {
+      if (char === '"') {
+        insideQuote = !insideQuote;
+      } else if (char === ',' && !insideQuote) {
+        fields.push(currentField.trim());
+        currentField = "";
+      } else {
+        currentField += char;
+      }
+    }
+    fields.push(currentField.trim());
+    
+    let obj = {};
+    headers.forEach((h, i) => {
+      let val = fields[i] || "";
+      val = val.replace(/^"|"$/g, ""); // Limpiar comillas
+      
+      // Auto-conversión de tipos
+      if (val.toUpperCase() === "TRUE") val = true;
+      else if (val.toUpperCase() === "FALSE") val = false;
+      else if (val === "") val = null;
+      else if (!isNaN(val)) val = Number(val);
+      
+      obj[h] = val;
+    });
+    return obj;
+  });
+}
+
+// Función principal para refrescar el torneo desde Google Sheets
+async function cargarDesdeGoogleSheets() {
+  if (!SPREADSHEET_ID || SPREADSHEET_ID === "TU_GOOGLE_SHEET_ID_AQUI") {
+    console.log("ℹ️ Usando datos de respaldo locales del Torneo (Google Sheets no configurado).");
+    return;
+  }
+  
+  try {
+    const fetchTab = async (tabName) => {
+      const gid = GIDS[tabName];
+      const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/pub?gid=${gid}&output=csv&cachebust=${Date.now()}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Error HTTP: ${res.status} al leer ${tabName}`);
+      const text = await res.text();
+      return parseCSV(text);
+    };
+
+    console.log("⚡ Descargando datos desde Google Sheets...");
+    const [playersRaw, coursesRaw, schedRaw, flightsRaw, scoresRaw] = await Promise.all([
+      fetchTab("jugadores"),
+      fetchTab("canchas"),
+      fetchTab("calendario"),
+      fetchTab("salidas"),
+      fetchTab("resultados")
+    ]);
+
+    // 1. Cargar Jugadores
+    if (playersRaw && playersRaw.length) {
+      TP = playersRaw.map(p => ({
+        id: Number(p.id),
+        name: p.name,
+        short: p.short_name,
+        hcp: p.handicap !== null ? Number(p.handicap) : null,
+        mat: String(p.matricula || ""),
+        ini: p.initials || p.short_name.substring(0, 2).toUpperCase()
+      }));
+    }
+
+    // 2. Cargar Canchas
+    if (coursesRaw && coursesRaw.length) {
+      COURSES = coursesRaw.map(c => ({
+        id: c.id,
+        name: c.name,
+        city: c.city,
+        par: String(c.par).split(",").map(Number),
+        hdi: String(c.hdi).split(",").map(Number),
+        slope: Number(c.slope),
+        rating: Number(c.rating)
+      }));
+    }
+
+    // 3. Cargar Calendario
+    if (schedRaw && schedRaw.length) {
+      SCHED = schedRaw.map(s => ({
+        num: Number(s.num),
+        date: s.date,
+        course: s.course_id || null,
+        status: s.status,
+        doble: s.is_double === true || String(s.is_double).toUpperCase() === "TRUE"
+      }));
+    }
+
+    // 4. Reconstruir FD (Resultados y scores por fecha)
+    const nuevoFD = {};
+    SCHED.forEach(s => {
+      const flightsForDate = flightsRaw.filter(f => Number(f.date_num) === s.num);
+      const scoresForDate = scoresRaw.filter(sc => Number(sc.date_num) === s.num);
+      
+      if (s.status === "played" || flightsForDate.length > 0 || scoresForDate.length > 0) {
+        const lineas = flightsForDate.map(f => ({
+          num: Number(f.flight_num),
+          hora: f.tee_time,
+          pids: String(f.player_ids).split(",").map(Number)
+        }));
+
+        const scores = {};
+        scoresForDate.forEach(sc => {
+          scores[Number(sc.player_id)] = {
+            hcp: Number(sc.handicap),
+            holes: String(sc.holes).split(",").map(Number),
+            h19: sc.h19 === true || String(sc.h19).toUpperCase() === "TRUE",
+            approach: sc.approach === true || String(sc.approach).toUpperCase() === "TRUE",
+            hoyoEnUno: sc.hoyo_en_uno === true || String(sc.hoyo_en_uno).toUpperCase() === "TRUE",
+            noApp: sc.no_app === true || String(sc.no_app).toUpperCase() === "TRUE",
+            noCard: sc.no_card === true || String(sc.no_card).toUpperCase() === "TRUE",
+            abandon: sc.abandon === true || String(sc.abandon).toUpperCase() === "TRUE",
+            noShow: sc.no_show === true || String(sc.no_show).toUpperCase() === "TRUE",
+            is_official: sc.is_official === true || String(sc.is_official).toUpperCase() === "TRUE"
+          };
+        });
+
+        nuevoFD[s.num] = {
+          fecha: s.num,
+          course: s.course || null,
+          date: s.date,
+          lineas,
+          scores
+        };
+      }
+    });
+
+    FD = nuevoFD;
+    console.log("✓ Base de datos Google Sheets cargada exitosamente.");
+  } catch (e) {
+    console.error("⚠️ Falló la conexión con Google Sheets. Usando datos estáticos de respaldo:", e);
+  }
+}
+
 // ════════════════════════════════════════════════════
-// DATOS MAESTROS
+// DATOS MAESTROS DE RESPALDO (LOCAL FALLBACK)
 // ════════════════════════════════════════════════════
-const TP = [
+let TP = [
   {id:1, name:'Juan Fraile',         short:'Fraile',      hcp:32, mat:'183433', ini:'JF'},
   {id:2, name:'Raúl Catalán',        short:'Catalán',     hcp:24, mat:'188549', ini:'RC'},
   {id:3, name:'Jacques Blehaut',     short:'Blehaut',     hcp:30, mat:'183435', ini:'JB'},
@@ -163,14 +595,14 @@ const TP = [
   {id:12,name:'Francisco Baumann',   short:'Baumann',     hcp:15, mat:'117902', ini:'FB'},
 ];
 
-const COURSES = [
+let COURSES = [
   {id:'cnsi', name:'Club Náutico San Isidro', city:'San Isidro',
    par:[4,3,4,4,4,5,4,3,4,4,4,5,4,3,5,4,3,4],
    hdi:[3,15,17,9,5,1,7,13,11,14,6,10,12,2,8,4,18,16],
    slope:113, rating:68.1}
 ];
 
-const SCHED = [
+let SCHED = [
   {num:1,date:'08/05/2026',course:'cnsi',status:'played',doble:false},
   {num:2,date:'05/06/2026',course:null, status:'upcoming',doble:false},
   {num:3,date:'03/07/2026',course:null, status:'pending', doble:false},
@@ -219,7 +651,6 @@ function sph(hcp, hdi){
   const ex=hcp%18;
   const sorted=[...hdi.entries?.[Symbol.iterator]?.()??hdi.map((v,i)=>({v,i}))].sort?.((x,y)=>x.v-y.v)
     ?? hdi.map((v,i)=>({v,i})).sort((x,y)=>x.v-y.v);
-  // fallback simple sort
   const si=hdi.map((v,i)=>({v,i})).sort((x,y)=>x.v-y.v);
   for(let k=0;k<ex;k++) a[si[k].i]++;
   return a;
@@ -228,28 +659,46 @@ function sph(hcp, hdi){
 function stb(holes, hcp, par, hdi){
   const s=sph(hcp,hdi);
   return holes.reduce((tot,sc,i)=>{
+    if (sc <= 0) return tot;
     const diff=(sc-s[i])-par[i];
-    return tot+(diff<=-1?3:diff===0?2:diff===1?1:0);
+    return tot+(diff<=-2?4:diff===-1?3:diff===0?2:diff===1?1:0);
   },0);
 }
 
 function stbByHole(holes,hcp,par,hdi){
   const s=sph(hcp,hdi);
-  return holes.map((sc,i)=>{const d=(sc-s[i])-par[i];return d<=-2?4:d===-1?3:d===0?2:d===1?1:0;});
+  return holes.map((sc,i)=>{
+    if (sc <= 0) return 0;
+    const d=(sc-s[i])-par[i];
+    return d<=-2?4:d===-1?3:d===0?2:d===1?1:0;
+  });
 }
 
 function gross(h){return h.reduce((a,b)=>a+b,0);}
 function neto(h,hcp){return gross(h)-hcp;}
 
 function getCourse(id){return COURSES.find(c=>c.id===id)||COURSES[0];}
-function getPlayer(id){return TP.find(p=>p.id==id);}
+function getPlayer(id){
+  let p = TP.find(p=>p.id==id);
+  if (p) return p;
+  if (typeof liveDateNum !== 'undefined' && FD[liveDateNum] && FD[liveDateNum].scores && FD[liveDateNum].scores[id]) {
+    const sc = FD[liveDateNum].scores[id];
+    return { id: id, name: sc.name, short: sc.name.split(' ')[0], hcp: sc.hcp, isReplace: true };
+  }
+  for (const fn in FD) {
+    if (FD[fn] && FD[fn].scores && FD[fn].scores[id]) {
+      const sc = FD[fn].scores[id];
+      return { id: id, name: sc.name, short: sc.name.split(' ')[0], hcp: sc.hcp, isReplace: true };
+    }
+  }
+  return null;
+}
 function getSched(n){return SCHED.find(s=>s.num===n);}
 
 // ════════════════════════════════════════════════════
 // ASIGNACIÓN DE PUNTOS CON EMPATES
 // ════════════════════════════════════════════════════
 function assignPts(ranked, doble){
-  // ranked: array con .val (mayor=mejor para STB, menor=mejor para medal)
   const pm=doble?PTS_D:PTS_N;
   const out=[];
   let i=0;
@@ -275,17 +724,38 @@ function getFechaResults(fn){
   const fd=FD[fn]; if(!fd) return [];
   const c=getCourse(fd.course);
   return Object.entries(fd.scores).map(([pid,sc])=>{
-    if(sc.noShow) return null;
     const p=getPlayer(pid);
-    const g=gross(sc.holes), n=neto(sc.holes,sc.hcp);
-    const s=stb(sc.holes,sc.hcp,c.par,c.hdi);
+    const hasCard = !sc.noShow && !sc.abandon && !sc.noCard;
+    const g=hasCard ? gross(sc.holes) : 0;
+    const n=hasCard ? neto(sc.holes,sc.hcp) : 0;
+    const s=hasCard ? stb(sc.holes,sc.hcp,c.par,c.hdi) : 0;
     const sched=getSched(fn), doble=sched?.doble||false;
+    
     let bonus=0;
     if(sc.h19)      bonus+=doble?2:1;
     if(sc.approach) bonus+=doble?6:2;
     if(sc.hoyoEnUno)bonus+=doble?24:12;
     if(sc.noApp)    bonus+=doble?-2:-1;
-    return{pid:parseInt(pid)||pid, p, sc, gross:g, net:n, stb:s, bonus, isReplace:sc.isReplace||false};
+    
+    // Aplicar penalizaciones del reglamento
+    if(sc.noCard)   bonus+=doble?-4:-2;
+    if(sc.abandon)  bonus+=doble?-6:-3;
+    if(sc.noShow)   bonus+=doble?-8:-4;
+    
+    const isOfficial = sc.is_official !== false && String(sc.is_official).toUpperCase() !== "FALSE";
+    
+    return{
+      pid:parseInt(pid)||pid, 
+      p, 
+      sc, 
+      gross:g, 
+      net:n, 
+      stb:s, 
+      bonus, 
+      isReplace:sc.isReplace||false,
+      hasPenalization: !hasCard,
+      isOfficial
+    };
   }).filter(Boolean);
 }
 
@@ -293,11 +763,27 @@ function getFechaRank(fn, mode){
   const res=getFechaResults(fn);
   const doble=getSched(fn)?.doble||false;
   const elig=res.filter(r=>!r.isReplace);
+  
+  // Separar jugadores penalizados para que no compitan por puntos de posición
+  const validPlayers = elig.filter(r => !r.hasPenalization);
+  const penalizedPlayers = elig.filter(r => r.hasPenalization);
+  
   const sorted=mode==='stb'
-    ?[...elig].sort((a,b)=>b.stb-a.stb)
-    :[...elig].sort((a,b)=>a.net-b.net);
+    ?[...validPlayers].sort((a,b)=>b.stb-a.stb)
+    :[...validPlayers].sort((a,b)=>a.net-b.net);
+    
   const ranked=assignPts(sorted.map(r=>({...r,val:mode==='stb'?r.stb:r.net})),doble);
-  return ranked.map(r=>({...r,totalPts:r.tpts+r.bonus}));
+  
+  // Jugadores penalizados reciben 0 puntos de posición (tpts = 0)
+  const penalizedRanked = penalizedPlayers.map(r => ({
+    ...r,
+    pos: '-',
+    tpts: 0,
+    val: mode === 'stb' ? 0 : 999
+  }));
+  
+  const allRanked = [...ranked, ...penalizedRanked];
+  return allRanked.map(r=>({...r,totalPts:r.tpts+r.bonus}));
 }
 
 // ════════════════════════════════════════════════════
@@ -334,15 +820,12 @@ function getAccum(){
   TP.forEach(p=>{map[p.id]={pid:p.id,p,stb:0,medal:0,lag:0,mixed:0,fechas:0};});
   Object.keys(FD).forEach(fn=>{
     const n=parseInt(fn);
-    // STB: suma directa de puntos Stableford del jugador (no por posición)
     getFechaResults(n).filter(r=>!r.isReplace).forEach(r=>{
       if(map[r.pid]){map[r.pid].stb+=r.stb;map[r.pid].fechas++;}
     });
-    // Medal pts
     getFechaRank(n,'medal').forEach(r=>{
       if(map[r.pid]) map[r.pid].medal+=r.totalPts;
     });
-    // Lag pts
     getLaguneada(n).forEach(l=>{
       l.pids.forEach(pid=>{if(map[pid]) map[pid].lag+=l.lagPts;});
     });
@@ -352,7 +835,6 @@ function getAccum(){
 }
 
 function getPlayerStats(pid){
-  // Gross results (vs par bruto, sin hcp) para medal stats
   let geagles=0,gbirdies=0,gpars=0,gbogeys=0,gdbls=0,gworse=0;
   let asist=0,h19c=0,rounds=0,appr=0,henu=0;
   let grossA=[],stbA=[],netA=[];
@@ -369,7 +851,7 @@ function getPlayerStats(pid){
     grossA.push(g);netA.push(n2);stbA.push(s2);
     let fEagles=0,fBirdies=0,fPars=0,fBogeys=0,fDbls=0,fWorse=0;
     sc.holes.forEach((h,i)=>{
-      const d=h-c.par[i]; // GROSS vs par, sin hcp
+      const d=h-c.par[i];
       if(d<=-2){geagles++;fEagles++;}
       else if(d===-1){gbirdies++;fBirdies++;}
       else if(d===0){gpars++;fPars++;}
@@ -416,12 +898,36 @@ function mono(v){return`<span style="font-family:'DM Mono',monospace">${v}</span
 let CUR='dashboard';
 function nav(p){
   CUR=p;
-  document.querySelectorAll('.ni').forEach(el=>el.classList.remove('active'));
-  const idx=['dashboard','ranking','fechas','carga','jugadores','stats','canchas'].indexOf(p);
-  document.querySelectorAll('.ni')[idx]?.classList.add('active');
+  updateNavUI();
+  
+  document.querySelectorAll('.sb .ni').forEach(el => {
+    const clickAttr = el.getAttribute('onclick') || '';
+    if (clickAttr.includes(`'${p}'`)) {
+      el.classList.add('active');
+    } else {
+      el.classList.remove('active');
+    }
+  });
+  
   const mc=document.getElementById('MC');
   mc.innerHTML='';
-  ({dashboard:rDash,ranking:rRank,fechas:rFechas,carga:rCarga,jugadores:rJug,stats:rStats,canchas:rCanchas})[p]?.(mc);
+  
+  const renderers = {
+    dashboard: rDash,
+    ranking: rRank,
+    fechas: rFechas,
+    carga: rCarga,
+    jugadores: rJug,
+    stats: rStats,
+    canchas: rCanchas,
+    live: rLive
+  };
+  
+  if (renderers[p]) {
+    renderers[p](mc);
+  } else {
+    rDash(mc);
+  }
 }
 function closeM(e){if(e.target===e.currentTarget)closeMD();}
 function closeMD(){document.getElementById('MOD').innerHTML='';}
@@ -434,20 +940,40 @@ function rDash(el){
   const lS=[...all].sort((a,b)=>b.stb-a.stb)[0];
   const lM=[...all].sort((a,b)=>b.medal-a.medal)[0];
   const lX=[...all].sort((a,b)=>b.mixed-a.mixed)[0];
-  const lL=[...all].sort((a,b)=>b.lag-a.lag)[0];
+  
+  const playedDates = Object.keys(FD).map(Number).sort((a,b)=>b-a);
+  const latestFn = playedDates.length > 0 ? playedDates[0] : 1;
+  const nextDate = SCHED.find(s => s.status === 'upcoming');
+  const nextDateStr = nextDate ? nextDate.date : 'TBD';
+
   el.innerHTML=`
   <div class="ph"><h1>Dashboard</h1><p>Torneo Golf 26 — Temporada 2026</p></div>
   <div class="mg">
-    <div class="mc"><div class="ml">Fechas jugadas</div><div class="mv">${Object.keys(FD).length}<span style="font-size:16px;color:var(--txm)"> / 6</span></div><div class="ms">Próxima: 05/06</div></div>
+    <div class="mc"><div class="ml">Fechas jugadas</div><div class="mv">${Object.keys(FD).length}<span style="font-size:16px;color:var(--txm)"> / 6</span></div><div class="ms">Próxima: ${nextDateStr}</div></div>
     <div class="mc"><div class="ml">Líder Stableford</div><div class="mv" style="font-size:18px">${lS?.p.short||'—'}</div><div class="ms">${lS?lS.stb+' pts acum.':''}</div></div>
     <div class="mc"><div class="ml">Líder Medal</div><div class="mv" style="font-size:18px">${lM?.p.short||'—'}</div><div class="ms">${lM?lM.medal+' pts acum.':''}</div></div>
     <div class="mc"><div class="ml">Líder Mixto</div><div class="mv" style="font-size:18px">${lX?.p.short||'—'}</div><div class="ms">${lX?lX.mixed+' pts acum.':''}</div></div>
   </div>
   <div class="g2" style="margin-bottom:24px">
     <div class="card">
-      <div class="ct">Ranking Stableford</div>
+      <div class="ct">Ranking Stableford (Fecha ${latestFn})</div>
       <table><thead><tr><th>#</th><th>Jugador</th><th>STB</th><th>Lag</th><th>Pts</th></tr></thead><tbody>
-      ${[...all].sort((a,b)=>b.stb-a.stb).slice(0,6).map((r,i)=>`<tr class="${i<3?'hl':''}"><td>${pb(i+1)}</td><td>${r.p.name}</td><td style="font-family:'DM Mono',monospace">${r.p?getFechaResults(1).find(x=>x.pid==r.pid)?.stb??'—':'—'}</td><td>${ptb(r.lag)}</td><td>${ptb(r.stb)}</td></tr>`).join('')}
+      ${[...all].sort((a,b)=>b.stb-a.stb).slice(0,6).map((r,i)=>{
+        const fr=getFechaResults(latestFn).find(x=>x.pid==r.pid);
+        const isLive = fr && !fr.isOfficial;
+        return `<tr class="${i<3?'hl':''}" style="${isLive ? 'border-left: 3px solid #10B981; background:#f0fdf4;' : ''}">
+          <td>${pb(i+1)}</td>
+          <td>
+            <div style="display:flex; align-items:center; gap:4px;">
+              <strong>${r.p.name}</strong>
+              ${isLive ? `<span class="bdg bg pulse-live" style="background:#10B981; color:#fff; font-size:9px; padding:1px 4px; border-radius:4px;">• En Vivo</span>` : ''}
+            </div>
+          </td>
+          <td style="font-family:'DM Mono',monospace">${fr?.stb??'—'}</td>
+          <td>${ptb(r.lag)}</td>
+          <td>${ptb(r.stb)}</td>
+        </tr>`;
+      }).join('')}
       </tbody></table>
       <div style="margin-top:12px"><button class="btn btn-s" onclick="nav('ranking')">Ver completo →</button></div>
     </div>
@@ -514,7 +1040,6 @@ function renderRT(mode){
       const cells=SCHED.map(s=>{
         if(!FD[s.num]) return`<td style="text-align:center;color:var(--txm)">—</td>`;
         if(mode==='stb'){
-          // STB: mostrar puntos Stableford reales del jugador
           const fr=getFechaResults(s.num).find(x=>x.pid==r.pid);
           return fr?`<td style="text-align:center;font-size:12px;font-family:'DM Mono',monospace">${fr.stb}</td>`:`<td style="text-align:center;color:var(--txm)">—</td>`;
         }
@@ -527,7 +1052,6 @@ function renderRT(mode){
           const lp=lr?.lagPts??null;
           return lp!=null?`<td style="text-align:center;font-size:12px">${lp>0?'+'+lp:lp}</td>`:`<td style="text-align:center;color:var(--txm)">—</td>`;
         }
-        // mixed: STB real + lag
         const fr=getFechaResults(s.num).find(x=>x.pid==r.pid);
         const sp=fr?.stb??0;
         const lr=getLaguneada(s.num).find(l=>l.pids.includes(r.pid));
@@ -573,7 +1097,11 @@ function selF(n){
 }
 function stablefordByHoleArr(holes,hcp,par,hdi){
   const s=sph(hcp,hdi);
-  return holes.map((sc,i)=>{const d=(sc-s[i])-par[i];return d<=-2?4:d===-1?3:d===0?2:d===1?1:0;});
+  return holes.map((sc,i)=>{
+    if (sc <= 0) return 0;
+    const d=(sc-s[i])-par[i];
+    return d<=-2?4:d===-1?3:d===0?2:d===1?1:0;
+  });
 }
 
 function rFD(n){
@@ -609,20 +1137,30 @@ function rFT(mode,fn){
     <div class="alert ai" style="font-size:12px">Stableford: Eagle=4pts · Birdie=3pts · Par=2pts · Bogey=1pt · Doble+=0pts · ventaja hoyo por hoyo. Los puntos STB se acumulan directamente en el ranking anual.</div>
     <div class="card" style="margin-bottom:20px"><table>
       <thead><tr><th>Pos</th><th>Jugador</th><th>HCP</th><th>Pts STB</th><th>Gross</th><th>Neto</th><th>Bonus</th></tr></thead>
-      <tbody>${results.map((r,i)=>`<tr class="${i<3?'hl':''}">
-        <td>${pb(i+1)}</td>
-        <td><strong>${r.p?.name||r.sc.name||'?'}</strong>${r.isReplace?'<span class="bdg ba" style="margin-left:6px;font-size:10px">Reempl.</span>':''}</td>
-        <td>${r.sc.hcp}</td><td>${stb_badge(r.stb)}</td>
-        <td>${mono(r.gross)}</td><td>${mono(r.net)}</td>
-        <td>${r.bonus!==0?ptb(r.bonus):'—'}</td>
-      </tr>`).join('')}</tbody>
+      <tbody>${results.map((r,i)=>{
+        const isLive = !r.isOfficial;
+        return `<tr class="${i<3?'hl':''}" style="${isLive ? 'border: 1px solid #10B981; background:#f0fdf4;' : ''}">
+          <td>${pb(i+1)}</td>
+          <td>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <strong>${r.p?.name||r.sc.name||'?'}</strong>
+              ${isLive ? `<span class="bdg bg pulse-live" style="background:#10B981; color:#fff; font-size:9px; padding:2px 6px; border-radius:4px;">• En Vivo</span>` : ''}
+              ${r.isReplace?'<span class="bdg ba" style="font-size:10px">Reempl.</span>':''}
+            </div>
+          </td>
+          <td>${r.sc.hcp}</td><td>${stb_badge(r.stb)}</td>
+          <td>${mono(r.gross)}</td><td>${mono(r.net)}</td>
+          <td>${r.bonus!==0?ptb(r.bonus):'—'}</td>
+        </tr>`;
+      }).join('')}</tbody>
     </table></div>
     <div style="font-size:13px;font-weight:500;margin-bottom:12px;color:var(--tx2)">Tarjetas Stableford — detalle hoyo por hoyo</div>
     ${results.map(r=>{
       const sc=r.sc;
-      const s=sph(sc.hcp,c.hdi);
+      const s=sph(sc.hcp,c.par); // fallback/diff checks
+      const s_actual=sph(sc.hcp,c.hdi);
       const stbH=stablefordByHoleArr(sc.holes,sc.hcp,c.par,c.hdi);
-      const netoH=sc.holes.map((h,i)=>h-s[i]);
+      const netoH=sc.holes.map((h,i)=>h-s_actual[i]);
       const netoDiff=netoH.map((n,i)=>n-c.par[i]);
       const ida=sc.holes.slice(0,9).reduce((a,b)=>a+b,0);
       const vta=sc.holes.slice(9).reduce((a,b)=>a+b,0);
@@ -645,7 +1183,7 @@ function rFT(mode,fn){
           </thead>
           <tbody>
             <tr><td style="text-align:left;font-weight:500">Gross</td>${sc.holes.map((h,i)=>`<td><span class="sc-cell ${scClass(h,c.par[i])}">${h}</span></td>`).join('')}<td><strong>${ida}</strong></td><td><strong>${vta}</strong></td><td><strong>${sc.holes.reduce((a,b)=>a+b,0)}</strong></td></tr>
-            <tr><td style="text-align:left;font-size:10px;color:var(--txm)">Ventaja</td>${s.map(v=>`<td style="color:var(--txm)">${v}</td>`).join('')}<td colspan="3"></td></tr>
+            <tr><td style="text-align:left;font-size:10px;color:var(--txm)">Ventaja</td>${s_actual.map(v=>`<td style="color:var(--txm)">${v}</td>`).join('')}<td colspan="3"></td></tr>
             <tr><td style="text-align:left;font-size:10px;color:var(--tx2)">Neto</td>${netoH.map((n,i)=>{const d=netoDiff[i];const col=d<=-1?'color:var(--g7)':d===1?'color:var(--b8)':d>=2?'color:var(--r8)':'';return`<td style="${col}">${n}</td>`;}).join('')}<td colspan="3"></td></tr>
             <tr><td style="text-align:left;font-size:10px;color:var(--txm)">Neto STB</td>${netoDiff.map(d=>{const col=d<=-1?'color:var(--g7)':d===1?'color:var(--b8)':d>=2?'color:var(--r8)':'';const lbl=d<=-2?'Eagle':d===-1?'Birdie':d===0?'Par':d===1?'Bogey':d===2?'Dbl':'Dbl+';return`<td style="font-size:9px;${col}">${lbl}</td>`;}).join('')}<td colspan="3"></td></tr>
             <tr style="background:var(--g0)"><td style="text-align:left;font-weight:600;color:var(--g8)">Pts STB</td>${stbH.map(p=>{const bg=p===4?'background:var(--a0);color:var(--a8);font-weight:700':p===3?'background:var(--g0);color:var(--g8)':p===2?'background:var(--g0);color:var(--g8);opacity:.7':p===1?'background:var(--b0);color:var(--b8)':'color:var(--txm)';return`<td><span class="sc-cell" style="${bg};font-weight:600">${p}</span></td>`;}).join('')}<td style="font-weight:600;color:var(--g8)">${stbIda}</td><td style="font-weight:600;color:var(--g8)">${stbVta}</td><td style="font-weight:600;color:var(--g8)">${r.stb}</td></tr>
@@ -672,8 +1210,8 @@ function rFT(mode,fn){
     <div style="font-size:13px;font-weight:500;margin-bottom:12px;color:var(--tx2)">Tarjetas Medal — detalle hoyo por hoyo</div>
     ${rank.map(r=>{
       const sc=r.sc;
-      const s=sph(sc.hcp,c.hdi);
-      const netoH=sc.holes.map((h,i)=>h-s[i]);
+      const s_actual=sph(sc.hcp,c.hdi);
+      const netoH=sc.holes.map((h,i)=>h-s_actual[i]);
       const ida=sc.holes.slice(0,9).reduce((a,b)=>a+b,0);
       const vta=sc.holes.slice(9).reduce((a,b)=>a+b,0);
       const nIda=netoH.slice(0,9).reduce((a,b)=>a+b,0);
@@ -696,7 +1234,7 @@ function rFT(mode,fn){
           </thead>
           <tbody>
             <tr><td style="text-align:left;font-weight:500">Gross</td>${sc.holes.map((h,i)=>`<td><span class="sc-cell ${scClass(h,c.par[i])}">${h}</span></td>`).join('')}<td><strong>${ida}</strong></td><td><strong>${vta}</strong></td><td><strong>${r.gross}</strong></td></tr>
-            <tr><td style="text-align:left;font-size:10px;color:var(--txm)">Ventaja</td>${s.map(v=>`<td style="color:var(--txm)">${v}</td>`).join('')}<td colspan="3"></td></tr>
+            <tr><td style="text-align:left;font-size:10px;color:var(--txm)">Ventaja</td>${s_actual.map(v=>`<td style="color:var(--txm)">${v}</td>`).join('')}<td colspan="3"></td></tr>
             <tr style="background:var(--g0)"><td style="text-align:left;font-weight:600;color:var(--g8)">Neto</td>${netoH.map((n,i)=>{const d=n-c.par[i];const cls=d<=-1?'sb2':d===0?'sp':d===1?'sbo':'sd';return`<td><span class="sc-cell ${cls}">${n}</span></td>`;}).join('')}<td style="font-weight:600;color:var(--g8)">${nIda}</td><td style="font-weight:600;color:var(--g8)">${nVta}</td><td style="font-weight:600;color:var(--g8)">${r.net}</td></tr>
           </tbody>
         </table></div>
@@ -734,61 +1272,17 @@ function rFT(mode,fn){
         const names=l.pids.map(id=>getPlayer(id)?.short||'?').join(', ');
         return`<tr>
           <td><span class="bdg ${lCls[li%3]}">L${l.num}</span><div style="font-size:10px;color:var(--txm);margin-top:3px">${names}</div></td>
-          ${l.bph.map((v,h)=>{const st=hW[h][li];const bg=st==='w'?'background:var(--g0);color:var(--g8)':st==='t'?'background:var(--a0);color:var(--a8)':'';return`<td><span class="sc-cell" style="${bg}">${v}</span></td>`;}).join('')}
-          <td>${mono(l.ida)}</td><td>${mono(l.vta)}</td><td>${mono(l.tot)}</td>
-          <td>${l.vs>=0?'+'+l.vs:l.vs}</td><td>${ptb(l.lagPts)}</td>
+          ${l.bph.map((v,h)=>{const st=hW[h][li];const bg=st==='w'?'background:var(--g0);color:var(--g8)':st==='t'?'background:var(--gray0);color:var(--gray6)':'';return`<td style="${bg};font-family:'DM Mono',monospace">${v}</td>`;}).join('')}
+          <td><strong>${l.ida}</strong></td><td><strong>${l.vta}</strong></td><td><strong>${l.tot}</strong></td>
+          <td>${l.vs>=0?'+'+l.vs:l.vs}</td><td><strong>${ptb(l.lagPts)}</strong></td>
         </tr>`;
       }).join('')}</tbody>
-    </table></div>
-    <div style="font-size:13px;font-weight:500;margin-bottom:12px;color:var(--tx2)">Detalle hoyo a hoyo — scores netos por jugador y mejor de línea</div>
-    ${lag.map((l,li)=>{
-      const players=l.pids.map(pid=>({pid,sc:fd.scores[pid],p:getPlayer(pid)})).filter(x=>x.sc&&x.sc.holes);
-      const names=players.map(x=>x.p?.short||x.sc.name||'?').join(' · ');
-      return`<div class="card" style="margin-bottom:14px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-          <span class="bdg ${lCls[li%3]}" style="font-size:13px">Línea ${l.num}</span>
-          <span style="font-size:13px;font-weight:500">${mdl[li]} ${l.hora}</span>
-          <span style="font-size:12px;color:var(--txm)">${names}</span>
-          <span class="bdg ${lCls[li%3]}" style="margin-left:auto">Neto: ${l.tot} (${l.vs>=0?'+'+l.vs:l.vs} vs par)</span>
-        </div>
-        <div class="sct"><table style="min-width:660px;font-size:11px">
-          <thead>
-            <tr><th style="text-align:left;min-width:120px">Jugador</th>${c.par.map((_,i)=>`<th>${i+1}</th>`).join('')}<th>IDA</th><th>VTA</th><th>TOT</th></tr>
-            <tr style="background:var(--gray0)"><th style="text-align:left;font-size:10px;color:var(--txm)">Par</th>${c.par.map(p=>`<td style="color:var(--txm)">${p}</td>`).join('')}<td style="color:var(--txm)">${pIda}</td><td style="color:var(--txm)">${pVta}</td><td style="color:var(--txm)">${parTotal}</td></tr>
-          </thead>
-          <tbody>
-            ${players.map(({pid,sc,p})=>{
-              const s=sph(sc.hcp,c.hdi);
-              const netoH=sc.holes.map((h,i)=>h-s[i]);
-              const nIda=netoH.slice(0,9).reduce((a,b)=>a+b,0);
-              const nVta=netoH.slice(9).reduce((a,b)=>a+b,0);
-              return`<tr>
-                <td style="text-align:left"><strong>${p?.short||sc.name||'?'}</strong><span style="font-size:10px;color:var(--txm);margin-left:4px">hcp ${sc.hcp}</span></td>
-                ${netoH.map((n,h)=>{
-                  const isBest=n===l.bph[h]&&hW[h][li]==='w';
-                  const isTie=n===l.bph[h]&&hW[h][li]==='t';
-                  const d=n-c.par[h];
-                  const cls=d<=-1?'sb2':d===0?'sp':d===1?'sbo':'sd';
-                  const bg=isBest?'background:var(--g0);color:var(--g8);font-weight:700':isTie?'background:var(--a0);color:var(--a8)':'';
-                  return`<td><span class="sc-cell ${!isBest&&!isTie?cls:''}" style="${bg}">${n}</span></td>`;
-                }).join('')}
-                <td>${nIda}</td><td>${nVta}</td><td><strong>${netoH.reduce((a,b)=>a+b,0)}</strong></td>
-              </tr>`;
-            }).join('')}
-            <tr style="background:var(--g0);border-top:2px solid var(--g2)">
-              <td style="text-align:left;font-weight:600;color:var(--g8)">★ Mejor L${l.num}</td>
-              ${l.bph.map((v,h)=>{const d=v-c.par[h];const cls=d<=-1?'sb2':d===0?'sp':d===1?'sbo':'sd';return`<td><span class="sc-cell ${cls}" style="font-weight:700">${v}</span></td>`;}).join('')}
-              <td style="font-weight:600;color:var(--g8)">${l.ida}</td>
-              <td style="font-weight:600;color:var(--g8)">${l.vta}</td>
-              <td style="font-weight:600;color:var(--g8)">${l.tot}</td>
-            </tr>
-          </tbody>
-        </table></div>
-      </div>`;
-    }).join('')}`;
+    </table></div>`;
 
   } else {
-    el.innerHTML=`<div class="card sct"><table>
+    // Tarjetas crudas
+    el.innerHTML=`
+    <div class="card sct"><table>
       <thead>
         <tr><th>Jugador</th>${c.par.map((_,i)=>`<th>${i+1}</th>`).join('')}<th>IDA</th><th>VTA</th><th>TOT</th><th>HCP</th><th>NETO</th><th>STB</th></tr>
         <tr style="background:var(--gray0)"><th style="font-size:11px;color:var(--txm)">Par</th>${c.par.map(p=>`<td style="font-size:11px;color:var(--txm)">${p}</td>`).join('')}<td style="font-size:11px;color:var(--txm)">${pIda}</td><td style="font-size:11px;color:var(--txm)">${pVta}</td><td style="font-size:11px;color:var(--txm)">${parTotal}</td><td colspan="3"></td></tr>
@@ -874,46 +1368,75 @@ async function analyzeImg(dataUrl,fname){
   div.style.cssText='display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--bdr);border-radius:var(--rad);margin-bottom:8px;background:var(--bg)';
   div.innerHTML=`<img src="${dataUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--bdr)">
     <div style="flex:1"><div style="font-size:13px;font-weight:500">${fname}</div>
-    <div style="font-size:12px;color:var(--txm)" id="st-${safeId}">Analizando con IA...</div></div>
+    <div style="font-size:12px;color:var(--txm)" id="st-${safeId}">Analizando tarjeta con Gemini...</div></div>
     <div id="re-${safeId}"></div>`;
   uq.appendChild(div);
+  
+  if (!APPS_SCRIPT_URL) {
+    document.getElementById(`st-${safeId}`).textContent = "Falta configurar la URL de Apps Script en Config.";
+    document.getElementById(`st-${safeId}`).style.color = "var(--r8)";
+    document.getElementById(`re-${safeId}`).innerHTML = `<button class="btn btn-s" onclick="openAdminSettingsModal()">Configurar</button>`;
+    return;
+  }
+
   const b64=dataUrl.split(',')[1];
   const mt=dataUrl.split(';')[0].split(':')[1]||'image/jpeg';
+  
   try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,
-        messages:[{role:'user',content:[
-          {type:'image',source:{type:'base64',media_type:mt,data:b64}},
-          {type:'text',text:`Analizá esta tarjeta de golf. Respondé SOLO con JSON válido, sin texto adicional:\n{"playerName":"nombre","hcp":numero,"gross":numero,"holes":[18 numeros enteros en orden hoyo 1 al 18],"idaTotal":numero,"vtaTotal":numero,"courseName":"nombre cancha o null","par":[18 numeros o null],"hdi":[18 numeros o null],"date":"dd/mm/aaaa o null"}\nSi no ves el dato, usá null. Scores son números enteros positivos.`}
-        ]}]})});
-    const data=await resp.json();
-    const txt=data.content?.map(c=>c.text||'').join('').replace(/```json|```/g,'').trim();
-    const parsed=JSON.parse(txt);
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'parseCard',
+        imageBase64: b64,
+        mimeType: mt
+      })
+    });
+    
+    const data = await resp.json();
+    if (!data.success) {
+      throw new Error(data.error || "Error analizando tarjeta.");
+    }
+    
+    const parsed = data.data;
     const matched=matchP(parsed.playerName);
     const pid=matched?matched.id:'r_'+Date.now();
     const hcp=parsed.hcp??matched?.hcp??0;
-    CS.scores[pid]={hcp,holes:parsed.holes||new Array(18).fill(0),
-      h19:false,approach:false,hoyoEnUno:false,noApp:false,noCard:false,abandon:false,noShow:false,
-      name:parsed.playerName||'Desconocido',isReplace:!matched};
-    // update course if we have par/hdi data
+    
+    CS.scores[pid]={
+      hcp,
+      holes:parsed.holes||new Array(18).fill(0),
+      h19:false,
+      approach:false,
+      hoyoEnUno:false,
+      noApp:false,
+      noCard:false,
+      abandon:false,
+      noShow:false,
+      name:parsed.playerName||'Desconocido',
+      isReplace:!matched
+    };
+    
     const cid=document.getElementById('c-course')?.value;
     if(parsed.par?.every(p=>p!=null)&&parsed.hdi?.every(h=>h!=null)){
       const ex=COURSES.find(c=>c.id===cid);
       if(ex){ex.par=parsed.par;ex.hdi=parsed.hdi;}
     }
+    
     document.getElementById(`st-${safeId}`).textContent=matched
-      ?`✓ ${matched.name} — HCP ${hcp} — Gross ${parsed.gross}`
+      ?`✓ ${matched.name} — HCP ${hcp} — Gross ${parsed.gross || gross(parsed.holes)}`
       :`⚠ "${parsed.playerName}" no está en el plantel — cargado como reemplazante`;
     document.getElementById(`st-${safeId}`).style.color=matched?'var(--g7)':'var(--a6)';
     document.getElementById(`re-${safeId}`).innerHTML=`<button class="btn btn-s" onclick="openSM('${pid}')">Revisar</button>`;
     rPL();
   }catch(err){
-    document.getElementById(`st-${safeId}`).textContent=`Error: ${err.message}. Ingresá manualmente.`;
+    console.error(err);
+    document.getElementById(`st-${safeId}`).textContent=`Error de IA: ${err.message}.`;
     document.getElementById(`st-${safeId}`).style.color='var(--r8)';
     document.getElementById(`re-${safeId}`).innerHTML=`<button class="btn btn-s" onclick="openAddP()">Manual</button>`;
   }
 }
+
 
 function matchP(name){
   if(!name) return null;
@@ -979,29 +1502,115 @@ function confAddP(){
   closeMD();rPL();
 }
 
+function updateHcpDirect(pid, val) {
+  const hcp = parseInt(val) || 0;
+  if (CS.scores[pid]) {
+    CS.scores[pid].hcp = hcp;
+  }
+}
+
+function toggleEventDirect(pid, field) {
+  if (CS.scores[pid]) {
+    CS.scores[pid][field] = !CS.scores[pid][field];
+    rPL();
+  }
+}
+
+function changePenaltyDirect(pid, val) {
+  if (CS.scores[pid]) {
+    CS.scores[pid].noApp = val === 'noApp';
+    CS.scores[pid].noCard = val === 'noCard';
+    CS.scores[pid].abandon = val === 'abandon';
+    CS.scores[pid].noShow = val === 'noShow';
+    
+    if (val === 'noShow') {
+      CS.scores[pid].holes = new Array(18).fill(0);
+    }
+    rPL();
+  }
+}
+
 function rPL(){
   const el=document.getElementById('PL');
   const pids=Object.keys(CS.scores);
-  if(!pids.length){el.innerHTML=`<div class="alert ai">Sin jugadores.</div>`;return;}
+  if(!pids.length){el.innerHTML=`<div class="alert ai">Sin jugadores cargados aún.</div>`;return;}
   const cid=document.getElementById('c-course')?.value||'cnsi';
   const c=getCourse(cid);
-  el.innerHTML=pids.map(pid=>{
+  
+  let html = `<div class="tw">
+    <table style="min-width: 800px;">
+      <thead>
+        <tr>
+          <th>Jugador</th>
+          <th style="width: 80px;">HCP</th>
+          <th style="width: 200px; text-align: center;">Eventos Especiales</th>
+          <th style="width: 140px;">Estado / Penalización</th>
+          <th style="width: 140px; text-align: center;">Score Parcial</th>
+          <th style="text-align: right;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>`;
+      
+  pids.forEach(pid => {
     const sc=CS.scores[pid];
     const p=getPlayer(pid);
     const name=p?.name||sc.name||'?';
+    
     const has=sc.holes?.some(h=>h>0);
     const g=has?gross(sc.holes):0;
     const s=has?stb(sc.holes,sc.hcp,c.par,c.hdi):0;
-    return`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;border:1px solid var(--bdr);border-radius:var(--rad);margin-bottom:8px">
-      <div><strong>${name}</strong>${sc.isReplace?'<span class="bdg ba" style="margin-left:6px;font-size:10px">Reemplazante</span>':''}
-        <div style="font-size:12px;color:var(--txm);margin-top:2px">HCP: ${sc.hcp}${has?` · Gross: ${g} · STB: ${s}`:' · Sin score'}</div>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-s" onclick="openSM('${pid}')">${has?'Editar':'Cargar score'}</button>
-        <button class="btn btn-s btn-d" onclick="remP('${pid}')">×</button>
-      </div>
-    </div>`;
-  }).join('');
+    
+    let scoreDisplay = `<span style="color:var(--txm)">Sin score</span>`;
+    if (sc.noShow) {
+      scoreDisplay = `<span class="bdg br">No Show</span>`;
+    } else if (sc.abandon) {
+      scoreDisplay = `<span class="bdg br">Abandono</span>`;
+    } else if (has) {
+      scoreDisplay = `<strong style="font-family:'DM Mono',monospace">${g}</strong> golpes <span class="bdg bg" style="margin-left:4px;">${s} STB</span>`;
+    }
+    
+    const activePen = sc.noShow ? 'noShow' : sc.abandon ? 'abandon' : sc.noCard ? 'noCard' : sc.noApp ? 'noApp' : 'none';
+
+    html += `
+      <tr>
+        <td>
+          <div style="font-weight: 600; font-size: 13px;">${name}</div>
+          ${sc.isReplace ? `<span class="bdg ba" style="font-size:9px; padding: 1px 4px; margin-top:2px;">Reemplazante</span>` : ''}
+        </td>
+        <td>
+          <input type="number" class="fc fc-s" style="width:55px;" value="${sc.hcp}" oninput="updateHcpDirect('${pid}', this.value)" min="0" max="54">
+        </td>
+        <td>
+          <div style="display:flex; gap:6px; justify-content: center;">
+            <div class="ev-tog fc-s ${sc.h19?'on':''}" onclick="toggleEventDirect('${pid}', 'h19')">H19</div>
+            <div class="ev-tog fc-s ${sc.approach?'on':''}" onclick="toggleEventDirect('${pid}', 'approach')">Appr</div>
+            <div class="ev-tog fc-s ${sc.hoyoEnUno?'on':''}" onclick="toggleEventDirect('${pid}', 'hoyoEnUno')">H1</div>
+          </div>
+        </td>
+        <td>
+          <select class="fc fc-s" onchange="changePenaltyDirect('${pid}', this.value)" style="width: 120px;">
+            <option value="none" ${activePen === 'none' ? 'selected' : ''}>Normal</option>
+            <option value="noApp" ${activePen === 'noApp' ? 'selected' : ''}>Sin App (-1)</option>
+            <option value="noCard" ${activePen === 'noCard' ? 'selected' : ''}>Sin Tarjeta (-2)</option>
+            <option value="abandon" ${activePen === 'abandon' ? 'selected' : ''}>Abandono (-3)</option>
+            <option value="noShow" ${activePen === 'noShow' ? 'selected' : ''}>No Show (-4)</option>
+          </select>
+        </td>
+        <td style="text-align: center;">
+          ${scoreDisplay}
+        </td>
+        <td style="text-align: right;">
+          <div style="display: flex; gap: 6px; justify-content: flex-end;">
+            <button class="btn btn-s" onclick="openSM('${pid}')" ${sc.noShow ? 'disabled' : ''}>✏️ Hoyo a hoyo</button>
+            <button class="btn btn-s btn-d" onclick="remP('${pid}')">×</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  });
+  
+  html += `</tbody></table></div>`;
+  el.innerHTML = html;
 }
 function remP(pid){delete CS.scores[pid];CS.lineas.forEach(l=>{l.pids=l.pids.filter(x=>x!=pid);});rPL();}
 
@@ -1076,14 +1685,72 @@ function saveSM(pid){
   if(CS.scores[pid]) Object.assign(CS.scores[pid],{hcp,holes,...ev});
   closeMD();rPL();
 }
-function saveF(){
+async function saveF(){
   const fn=parseInt(document.getElementById('c-fn').value);
   const course=document.getElementById('c-course').value;
   const date=document.getElementById('c-date').value;
-  CS.lineas.forEach(l=>{const h=document.getElementById(`h-${l.num}`);if(h)l.hora=h.value;});
-  FD[fn]={fecha:fn,course,date,lineas:JSON.parse(JSON.stringify(CS.lineas)),scores:{...CS.scores}};
-  const sc=SCHED.find(s=>s.num===fn);if(sc){sc.status='played';if(course)sc.course=course;}
-  alert(`✓ Fecha ${fn} guardada.`);nav('fechas');
+  
+  CS.lineas.forEach(l=>{
+    const h=document.getElementById(`h-${l.num}`);
+    if(h) l.hora=h.value;
+  });
+  
+  FD[fn]={
+    fecha:fn,
+    course,
+    date,
+    lineas:JSON.parse(JSON.stringify(CS.lineas)),
+    scores:JSON.parse(JSON.stringify(CS.scores))
+  };
+  
+  // Set in-memory is_official flags to true since admin is validating!
+  Object.values(FD[fn].scores).forEach(sc => {
+    sc.is_official = true;
+  });
+  
+  const sc=SCHED.find(s=>s.num===fn);
+  if(sc){
+    sc.status='played';
+    if(course) sc.course=course;
+    if(date) sc.date=date;
+  }
+  
+  if (APPS_SCRIPT_URL) {
+    try {
+      const btn = document.querySelector('button[onclick="saveF()"]');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Sincronizando con Google Sheets...";
+      }
+      
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'saveOfficial',
+          pin: 'golf2026',
+          dateNum: fn,
+          courseId: course,
+          dateStr: date,
+          lineas: CS.lineas,
+          scores: CS.scores
+        })
+      });
+      const data = await resp.json();
+      if (data.success) {
+        alert("✓ Fecha guardada y sincronizada correctamente en Google Sheets.");
+      } else {
+        alert("⚠ Se guardó en local, pero falló la sincronización: " + data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("⚠ Se guardó en local, pero no se pudo conectar con Google Sheets. Comprobá tu URL.");
+    }
+  } else {
+    alert("✓ Fecha guardada localmente (URL de Google Sheets no configurada).");
+  }
+  
+  nav('fechas');
 }
 
 // ════════════════════════════════════════════════════
@@ -1127,7 +1794,6 @@ function rStats(el){
 function swST(m,el){document.querySelectorAll('#MC .tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');rST(m);}
 
 function pctColor(pct){
-  // Color by percentage: >80% green, 60-80 amber, <60 red
   if(pct>=80) return 'var(--g6)';
   if(pct>=60) return 'var(--a6)';
   return 'var(--r8)';
@@ -1139,7 +1805,6 @@ function rST(mode){
   const tf=Object.keys(FD).length||1;
 
   if(mode==='gen'){
-    // Per-player summary table with gross stats
     const totalHoles=rows.reduce((s,r)=>s+r.st.rounds*18,0);
     el.innerHTML=`
     <div class="mg" style="margin-bottom:20px">
@@ -1258,7 +1923,6 @@ function rST(mode){
     </div>`;
 
   } else {
-    // ASISTENCIA
     el.innerHTML=`<div class="card">
     <div class="ct">Asistencia al torneo y hoyo 19</div>
     <table><thead><tr>
@@ -1352,7 +2016,538 @@ function saveC(){
   closeMD();nav('canchas');
 }
 
-nav('dashboard');
+// ════════════════════════════════════════════════════
+// PWA & MENÚS MÓVILES (DRAWER & MOBILE NAV)
+// ════════════════════════════════════════════════════
+function toggleMoreMenu() {
+  const drawer = document.getElementById('more-drawer');
+  if (drawer.classList.contains('open')) {
+    closeMoreMenuForce();
+  } else {
+    drawer.classList.add('open');
+  }
+}
+
+function closeMoreMenu(event) {
+  if (event.target === event.currentTarget) {
+    closeMoreMenuForce();
+  }
+}
+
+function closeMoreMenuForce() {
+  document.getElementById('more-drawer').classList.remove('open');
+}
+
+function navMobile(p) {
+  closeMoreMenuForce();
+  nav(p);
+}
+
+// ════════════════════════════════════════════════════
+// MODO ADMIN & GOOGLE APPS SCRIPT SETTINGS
+// ════════════════════════════════════════════════════
+function updateNavUI() {
+  const niCarga = document.getElementById('ni-sb-carga');
+  const niAdminBtn = document.getElementById('ni-admin-btn');
+  if (niCarga) {
+    if (IS_ADMIN) {
+      niCarga.classList.remove('hidden');
+    } else {
+      niCarga.classList.add('hidden');
+    }
+  }
+  if (niAdminBtn) {
+    niAdminBtn.innerHTML = IS_ADMIN ? `⚙️ <span>Admin Config</span>` : `🔒 <span>Admin</span>`;
+    niAdminBtn.onclick = IS_ADMIN ? openAdminSettingsModal : openAdminModal;
+  }
+
+  // Bottom Nav (Mobile)
+  const bottomNav = document.querySelector('.bottom-nav');
+  if (bottomNav) {
+    if (IS_ADMIN) {
+      bottomNav.innerHTML = `
+        <div class="nav-item-mobile ${CUR==='dashboard'?'active':''}" onclick="navMobile('dashboard')"><span>🏠</span>Dashboard</div>
+        <div class="nav-item-mobile ${CUR==='ranking'?'active':''}" onclick="navMobile('ranking')"><span>🏆</span>Rankings</div>
+        <div class="nav-item-mobile ${CUR==='fechas'?'active':''}" onclick="navMobile('fechas')"><span>📅</span>Fechas</div>
+        <div class="nav-item-mobile ${CUR==='carga'?'active':''}" onclick="navMobile('carga')"><span>✏️</span>Cargar</div>
+        <div class="nav-item-mobile" onclick="toggleMoreMenu()"><span>➕</span>Más</div>
+      `;
+    } else {
+      bottomNav.innerHTML = `
+        <div class="nav-item-mobile ${CUR==='dashboard'?'active':''}" onclick="navMobile('dashboard')"><span>🏠</span>Dashboard</div>
+        <div class="nav-item-mobile ${CUR==='ranking'?'active':''}" onclick="navMobile('ranking')"><span>🏆</span>Rankings</div>
+        <div class="nav-item-mobile ${CUR==='fechas'?'active':''}" onclick="navMobile('fechas')"><span>📅</span>Fechas</div>
+        <div class="nav-item-mobile ${CUR==='live'?'active':''}" onclick="navMobile('live')"><span>⛳</span>En Vivo</div>
+        <div class="nav-item-mobile" onclick="toggleMoreMenu()"><span>➕</span>Más</div>
+      `;
+    }
+  }
+
+  // Drawer Menu (Mobile)
+  const drawerBody = document.querySelector('.drawer-body');
+  if (drawerBody) {
+    let html = '';
+    if (IS_ADMIN) {
+      html += `
+        <div class="drawer-item" onclick="navMobile('live')">⛳ Marcador en Vivo</div>
+        <div class="drawer-item" onclick="navMobile('jugadores')">👤 Plantel Jugadores</div>
+        <div class="drawer-item" onclick="navMobile('stats')">📊 Estadísticas</div>
+        <div class="drawer-item" onclick="navMobile('canchas')">🗺️ Canchas</div>
+        <div class="drawer-item" style="border-top:1px solid var(--bdr);margin-top:8px" onclick="openAdminSettingsModal()">⚙️ Configuración Admin</div>
+        <div class="drawer-item" style="color:var(--r8)" onclick="logoutAdmin()">🔓 Cerrar Sesión Admin</div>
+      `;
+    } else {
+      html += `
+        <div class="drawer-item" onclick="navMobile('jugadores')">👤 Plantel Jugadores</div>
+        <div class="drawer-item" onclick="navMobile('stats')">📊 Estadísticas</div>
+        <div class="drawer-item" onclick="navMobile('canchas')">🗺️ Canchas</div>
+        <div class="drawer-item" style="border-top:1px solid var(--bdr);margin-top:8px;color:var(--a6)" onclick="openAdminModal()">🔒 Ingreso Admin</div>
+      `;
+    }
+    drawerBody.innerHTML = html;
+  }
+}
+
+function openAdminModal() {
+  document.getElementById('MOD').innerHTML = `
+    <div class="mo" onclick="closeM(event)">
+      <div class="md" style="max-width: 400px;">
+        <div class="mh">
+          <h3>Ingreso Administrador</h3>
+          <button class="mc-btn" onclick="closeMD()">×</button>
+        </div>
+        <div class="mb">
+          <div class="alert ai">Introduce el PIN de administrador para habilitar la carga oficial de fechas.</div>
+          <div class="fg">
+            <label class="fl">PIN de Admin</label>
+            <input type="password" class="fc" id="admin-pin-input" placeholder="••••••••">
+          </div>
+          <div id="login-error" style="color:var(--r8); font-size:12px; margin-top:5px; font-weight:500;" class="hidden">PIN incorrecto. Reintentá.</div>
+        </div>
+        <div class="mf">
+          <button class="btn" onclick="closeMD()">Cancelar</button>
+          <button class="btn btn-p" onclick="loginAdmin()">Ingresar</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('admin-pin-input').focus();
+  document.getElementById('admin-pin-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') loginAdmin();
+  });
+}
+
+function loginAdmin() {
+  const pin = document.getElementById('admin-pin-input').value;
+  if (pin === 'golf2026') {
+    IS_ADMIN = true;
+    storage.set('golf_is_admin', 'true');
+    closeMD();
+    updateNavUI();
+    alert("¡Ingreso exitoso! Modo Administrador activado.");
+    nav('carga');
+  } else {
+    const err = document.getElementById('login-error');
+    if (err) err.classList.remove('hidden');
+  }
+}
+
+function logoutAdmin() {
+  IS_ADMIN = false;
+  storage.remove('golf_is_admin');
+  closeMoreMenuForce();
+  updateNavUI();
+  alert("Cerraste sesión como administrador.");
+  nav('dashboard');
+}
+
+function openAdminSettingsModal() {
+  closeMoreMenuForce();
+  document.getElementById('MOD').innerHTML = `
+    <div class="mo" onclick="closeM(event)">
+      <div class="md" style="max-width: 500px;">
+        <div class="mh">
+          <h3>Configuración de Administrador</h3>
+          <button class="mc-btn" onclick="closeMD()">×</button>
+        </div>
+        <div class="mb">
+          <div class="fg">
+            <label class="fl">URL del Web App de Google Apps Script</label>
+            <input type="text" class="fc" id="admin-url-input" placeholder="https://script.google.com/macros/s/.../exec" value="${APPS_SCRIPT_URL}">
+            <div style="font-size:11px;color:var(--txm);margin-top:4px;">Introducí la URL del Web App publicada en tu Apps Script para guardar y sincronizar en vivo.</div>
+          </div>
+        </div>
+        <div class="mf">
+          <button class="btn" onclick="closeMD()">Cancelar</button>
+          <button class="btn btn-p" onclick="saveAdminSettings()">Guardar Configuración</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function saveAdminSettings() {
+  const url = document.getElementById('admin-url-input').value.trim();
+  APPS_SCRIPT_URL = url;
+  storage.set('golf_apps_script_url', url);
+  closeMD();
+  alert("Configuración de Apps Script guardada correctamente.");
+  cargarDesdeGoogleSheets().then(() => {
+    nav('dashboard');
+  });
+}
+
+// ════════════════════════════════════════════════════
+// CARGA EN VIVO (PLAYERS & TRUSTED SCORING)
+// ════════════════════════════════════════════════════
+let liveHole = 1;
+let livePlayerId = null;
+let liveDateNum = null;
+let liveHoles = new Array(18).fill(0);
+let syncStatus = 'idle';
+let liveSyncTimeout = null;
+
+function rLive(el) {
+  const activeDates = SCHED.filter(s => s.status === 'upcoming' || s.status === 'played');
+  if (!liveDateNum && activeDates.length > 0) {
+    const upcoming = activeDates.find(s => s.status === 'upcoming');
+    liveDateNum = upcoming ? upcoming.num : activeDates[activeDates.length - 1].num;
+  } else if (!liveDateNum) {
+    liveDateNum = 1;
+  }
+
+  let selectPlayerHtml = `
+    <option value="" disabled ${!livePlayerId ? 'selected' : ''}>-- Seleccioná tu nombre --</option>
+  `;
+  TP.forEach(p => {
+    selectPlayerHtml += `<option value="${p.id}" ${livePlayerId == p.id ? 'selected' : ''}>${p.name}</option>`;
+  });
+  const fd = FD[liveDateNum];
+  if (fd && fd.scores) {
+    Object.entries(fd.scores).forEach(([pid, sc]) => {
+      if (sc.isReplace || String(pid).startsWith('r_')) {
+        selectPlayerHtml += `<option value="${pid}" ${livePlayerId == pid ? 'selected' : ''}>${sc.name} (Invitado)</option>`;
+      }
+    });
+  }
+  selectPlayerHtml += `<option value="new_replace">+ Registrar Jugador Invitado / Reemplazo...</option>`;
+
+  let selectDateHtml = '';
+  SCHED.forEach(s => {
+    selectDateHtml += `<option value="${s.num}" ${liveDateNum == s.num ? 'selected' : ''}>Fecha ${s.num} — ${s.date} (${s.status === 'played' ? 'Jugada' : s.status === 'upcoming' ? 'Activa' : 'Pendiente'})</option>`;
+  });
+
+  el.innerHTML = `
+    <div class="ph">
+      <h1>Marcador en Vivo ⛳</h1>
+      <p>Anotá tus golpes hoyo por hoyo durante la ronda.</p>
+    </div>
+
+    ${!APPS_SCRIPT_URL ? `
+      <div class="alert aw" style="font-size:12px">
+        <strong>Aviso:</strong> No está configurada la URL de Google Sheets en Configuración Admin. El marcador guardará los datos temporalmente en la memoria, pero no se sincronizará en la nube.
+      </div>
+    ` : ''}
+
+    <div class="card" style="margin-bottom: 20px;">
+      <div class="fr">
+        <div class="fg">
+          <label class="fl">¿Quién sos?</label>
+          <select class="fc" id="live-player-select" onchange="onLivePlayerChange(this.value)">
+            ${selectPlayerHtml}
+          </select>
+        </div>
+        <div class="fg">
+          <label class="fl">Fecha</label>
+          <select class="fc" id="live-date-select" onchange="onLiveDateChange(this.value)">
+            ${selectDateHtml}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div id="live-scorecard-container" class="hidden"></div>
+  `;
+
+  if (livePlayerId) {
+    renderLiveHolesPager();
+  }
+}
+
+function onLivePlayerChange(pid) {
+  if (pid === 'new_replace') {
+    const selectEl = document.getElementById('live-player-select');
+    if (selectEl) selectEl.value = livePlayerId || '';
+    
+    const name = prompt("Ingresá el Nombre completo del jugador Invitado / Reemplazo:");
+    if (!name) return;
+    const hcpInput = prompt("Ingresá el Handicap del jugador (0 a 54):", "20");
+    if (hcpInput === null) return;
+    const hcp = parseInt(hcpInput) || 0;
+    
+    const newPid = 'r_' + Date.now();
+    
+    if (!FD[liveDateNum]) {
+      FD[liveDateNum] = {
+        fecha: liveDateNum,
+        course: COURSES[0].id,
+        date: getSched(liveDateNum)?.date || '',
+        lineas: [],
+        scores: {}
+      };
+    }
+    
+    FD[liveDateNum].scores[newPid] = {
+      hcp,
+      holes: new Array(18).fill(0),
+      h19: false, approach: false, hoyoEnUno: false, noApp: false, noCard: false, abandon: false, noShow: false,
+      name,
+      isReplace: true,
+      is_official: false
+    };
+    
+    livePlayerId = newPid;
+    liveHoles = new Array(18).fill(0);
+    rLive(document.getElementById('main-content'));
+    return;
+  }
+
+  livePlayerId = isNaN(pid) ? pid : parseInt(pid);
+  const fd = FD[liveDateNum];
+  if (fd && fd.scores && fd.scores[livePlayerId]) {
+    const sc = fd.scores[livePlayerId];
+    liveHoles = [...sc.holes];
+  } else {
+    liveHoles = new Array(18).fill(0);
+  }
+  renderLiveHolesPager();
+}
+
+// Coordinate mobile drawer active menu closed on navigation
+function onLiveDateChange(dnum) {
+  liveDateNum = parseInt(dnum);
+  livePlayerId = null;
+  liveHoles = new Array(18).fill(0);
+  rLive(document.getElementById('main-content'));
+}
+
+function renderLiveHolesPager() {
+  const container = document.getElementById('live-scorecard-container');
+  if (!container) return;
+  container.classList.remove('hidden');
+
+  const p = getPlayer(livePlayerId);
+  if (!p) return;
+  
+  const fd = FD[liveDateNum];
+  const courseId = fd ? fd.course : COURSES[0].id;
+  const c = getCourse(courseId);
+  
+  let circlesHtml = '';
+  for (let i = 1; i <= 18; i++) {
+    const isCurrent = liveHole === i;
+    const scoreVal = liveHoles[i-1];
+    const hasScore = scoreVal > 0;
+    
+    let style = 'width:32px; height:32px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; cursor:pointer; font-weight:600; border:1px solid var(--bdr); flex-shrink:0;';
+    if (isCurrent) {
+      style += 'background:var(--acc); color:#fff; border-color:var(--acc); transform: scale(1.15);';
+    } else if (hasScore) {
+      style += 'background:var(--g0); color:var(--g8); border-color:var(--g1);';
+    } else {
+      style += 'background:var(--surf); color:var(--tx2);';
+    }
+    circlesHtml += `<div style="${style}" onclick="setLiveHole(${i})">${hasScore ? scoreVal : i}</div>`;
+  }
+
+  const curPar = c.par[liveHole - 1];
+  const curHdi = c.hdi[liveHole - 1];
+  const curScore = liveHoles[liveHole - 1];
+  const displayScore = curScore > 0 ? curScore : '-';
+
+  const playedHolesCount = liveHoles.filter(x => x > 0).length;
+  const liveGross = liveHoles.filter(x => x > 0).reduce((a, b) => a + b, 0);
+  const hcp = p.hcp || 0;
+  
+  const liveStb = stb(liveHoles, hcp, c.par, c.hdi);
+  const proratedHcp = (hcp * playedHolesCount / 18);
+  const liveNeto = playedHolesCount > 0 ? Math.round(liveGross - proratedHcp) : 0;
+  const vsPar = playedHolesCount > 0 ? (liveGross - c.par.slice(0, 18).reduce((sum, pVal, idx) => sum + (liveHoles[idx] > 0 ? pVal : 0), 0)) : 0;
+  const vsParStr = vsPar === 0 ? 'E' : vsPar > 0 ? `+${vsPar}` : `${vsPar}`;
+
+  let syncStatusText = 'Guardado';
+  let syncStatusColor = 'var(--g7)';
+  if (syncStatus === 'syncing') {
+    syncStatusText = 'Sincronizando con Google Sheets...';
+    syncStatusColor = 'var(--a6)';
+  } else if (syncStatus === 'error') {
+    syncStatusText = 'Guardado en local. Reintentando...';
+    syncStatusColor = 'var(--r8)';
+  } else if (syncStatus === 'idle') {
+    syncStatusText = 'Listo para anotar';
+    syncStatusColor = 'var(--tx2)';
+  }
+
+  container.innerHTML = `
+    <div class="card" style="margin-bottom:20px; overflow-x:auto;">
+      <div style="display:flex; gap:8px; padding-bottom:4px; justify-content: space-between;">
+        ${circlesHtml}
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px; text-align:center; position:relative; overflow:hidden;">
+      <div style="font-size:12px; color:var(--txm); text-transform:uppercase; letter-spacing:0.08em;">Hoyo ${liveHole}</div>
+      <div style="font-size:14px; font-weight:500; margin-top:4px;">Par ${curPar} &nbsp;·&nbsp; Dificultad (HDI) ${curHdi}</div>
+      
+      <div style="display:flex; align-items:center; justify-content:center; gap:28px; margin:24px 0;">
+        <button class="btn" style="width:54px; height:54px; border-radius:50%; font-size:24px; font-weight:600; display:flex; align-items:center; justify-content:center; border-color:var(--bdr2);" onclick="adjustLiveScore(-1)">−</button>
+        <div style="font-size:64px; font-weight:600; font-family:'DM Mono',monospace; width:80px; text-align:center;">${displayScore}</div>
+        <button class="btn" style="width:54px; height:54px; border-radius:50%; font-size:24px; font-weight:600; display:flex; align-items:center; justify-content:center; border-color:var(--bdr2);" onclick="adjustLiveScore(1)">+</button>
+      </div>
+
+      <div style="display:flex; justify-content:center; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+        <button class="btn btn-s" onclick="setLiveScoreVal(${curPar - 1})">Birdie (${curPar - 1})</button>
+        <button class="btn btn-s btn-p" onclick="setLiveScoreVal(${curPar})">Par (${curPar})</button>
+        <button class="btn btn-s" onclick="setLiveScoreVal(${curPar + 1})">Bogey (${curPar + 1})</button>
+        ${curScore > 0 ? `<button class="btn btn-s btn-d" onclick="setLiveScoreVal(0)">Borrar</button>` : ''}
+      </div>
+
+      <div style="border-top: 1px solid var(--bdr); margin-top:20px; padding-top:12px; display:flex; justify-content:space-between; align-items:center; font-size:12px;">
+        <div style="color:${syncStatusColor}; font-weight:500;">
+          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${syncStatusColor}; margin-right:4px;"></span>
+          ${syncStatusText}
+        </div>
+        <div>
+          Hoyos jugados: <strong>${playedHolesCount} / 18</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+      <div class="ct">Tu Score Parcial (HCP ${hcp})</div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; text-align:center;">
+        <div style="background:var(--bg); padding:10px; border-radius:8px;">
+          <div style="font-size:11px; color:var(--txm); text-transform:uppercase;">Gross Acum.</div>
+          <div style="font-size:20px; font-weight:600; font-family:'DM Mono',monospace; margin-top:4px;">${liveGross}</div>
+          <div style="font-size:10px; color:var(--tx2); margin-top:2px;">vs Par: ${vsParStr}</div>
+        </div>
+        <div style="background:var(--bg); padding:10px; border-radius:8px;">
+          <div style="font-size:11px; color:var(--txm); text-transform:uppercase;">Neto Estim.</div>
+          <div style="font-size:20px; font-weight:600; font-family:'DM Mono',monospace; margin-top:4px;">${liveNeto > 0 ? liveNeto : '-'}</div>
+        </div>
+        <div style="background:var(--bg); padding:10px; border-radius:8px; border:1px solid var(--g2)">
+          <div style="font-size:11px; color:var(--g8); text-transform:uppercase; font-weight:600;">Puntos STB</div>
+          <div style="font-size:20px; font-weight:700; font-family:'DM Mono',monospace; color:var(--g8); margin-top:4px;">${liveStb}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function setLiveHole(h) {
+  liveHole = h;
+  renderLiveHolesPager();
+}
+
+function adjustLiveScore(diff) {
+  const fd = FD[liveDateNum];
+  const courseId = fd ? fd.course : COURSES[0].id;
+  const c = getCourse(courseId);
+  const curPar = c.par[liveHole - 1];
+  let cur = liveHoles[liveHole - 1];
+  
+  if (cur === 0) {
+    cur = curPar;
+  } else {
+    cur += diff;
+  }
+  
+  if (cur < 1) cur = 1;
+  if (cur > 15) cur = 15;
+  
+  liveHoles[liveHole - 1] = cur;
+  renderLiveHolesPager();
+  triggerLiveSync();
+}
+
+function setLiveScoreVal(val) {
+  liveHoles[liveHole - 1] = val;
+  renderLiveHolesPager();
+  triggerLiveSync();
+}
+
+function triggerLiveSync() {
+  const fd = FD[liveDateNum];
+  if (fd) {
+    if (!fd.scores[livePlayerId]) {
+      const p = getPlayer(livePlayerId);
+      fd.scores[livePlayerId] = {
+        hcp: p?.hcp || 0,
+        holes: [...liveHoles],
+        h19: false, approach: false, hoyoEnUno: false, noApp: false, noCard: false, abandon: false, noShow: false,
+        name: p?.name || 'Jugador En Vivo',
+        isReplace: p?.isReplace || false,
+        is_official: false
+      };
+    } else {
+      fd.scores[livePlayerId].holes = [...liveHoles];
+      fd.scores[livePlayerId].is_official = false;
+    }
+  }
+
+  if (liveSyncTimeout) clearTimeout(liveSyncTimeout);
+  
+  if (!APPS_SCRIPT_URL) {
+    syncStatus = 'idle';
+    return;
+  }
+  
+  syncStatus = 'syncing';
+  renderLiveHolesPager();
+  
+  liveSyncTimeout = setTimeout(async () => {
+    try {
+      const p = getPlayer(livePlayerId);
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'saveLiveScore',
+          dateNum: liveDateNum,
+          playerId: livePlayerId,
+          handicap: p?.hcp || 0,
+          holes: liveHoles
+        })
+      });
+      const data = await resp.json();
+      if (data.success) {
+        syncStatus = 'success';
+      } else {
+        syncStatus = 'error';
+        console.error("Live sync failed:", data.error);
+      }
+    } catch (err) {
+      syncStatus = 'error';
+      console.error("Connection error syncing score:", err);
+    }
+    renderLiveHolesPager();
+  }, 1200);
+}
+
+// Registrar Service Worker para soporte offline
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('✓ Service Worker registrado correctamente.', reg.scope))
+      .catch(err => console.warn('⚠️ Falló la registración del Service Worker.', err));
+  });
+}
+
+// Inicialización de la aplicación: Cargar desde Google Sheets y navegar al Dashboard
+cargarDesdeGoogleSheets().then(() => {
+  updateNavUI();
+  nav('dashboard');
+});
 </script>
 </body>
 </html>
