@@ -2454,11 +2454,16 @@ function rLive(el) {
   const activeDates = SCHED.filter(s => s.status === 'upcoming' || s.status === 'played');
   if (IS_TEST_MODE) {
     liveDateNum = 99;
-  } else if (!liveDateNum && activeDates.length > 0) {
-    const upcoming = activeDates.find(s => s.status === 'upcoming');
-    liveDateNum = upcoming ? upcoming.num : activeDates[activeDates.length - 1].num;
-  } else if (!liveDateNum) {
-    liveDateNum = 1;
+  } else {
+    if (liveDateNum === 99) {
+      liveDateNum = null;
+    }
+    if (!liveDateNum && activeDates.length > 0) {
+      const upcoming = activeDates.find(s => s.status === 'upcoming');
+      liveDateNum = upcoming ? upcoming.num : activeDates[activeDates.length - 1].num;
+    } else if (!liveDateNum) {
+      liveDateNum = 1;
+    }
   }
 
   let selectPlayerHtml = `
