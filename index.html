@@ -1617,7 +1617,7 @@ async function analyzeImg(dataUrl,fname){
   try{
     const resp = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: 'parseCard',
         imageBase64: b64,
@@ -1957,7 +1957,7 @@ async function saveF(){
       
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({
           action: 'saveOfficial',
           pin: 'golf2026',
@@ -2899,7 +2899,7 @@ function triggerLiveSync() {
       const p = getPlayer(livePlayerId);
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({
           action: 'saveLiveScore',
           dateNum: liveDateNum,
@@ -3396,7 +3396,7 @@ async function coSubmitResponse() {
   try {
     const resp = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: 'saveCoordination',
         dateNum: selectedCoordDateNum,
@@ -3442,7 +3442,7 @@ async function clearSimulationData() {
   try {
     const resp = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: 'clearSimulationData',
         pin: 'golf2026'
