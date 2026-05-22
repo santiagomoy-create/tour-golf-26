@@ -327,6 +327,118 @@ tr:hover td{background:var(--gray0)}
   padding: 4px 8px !important;
   font-size: 12px !important;
   border-radius: 6px !important;
+  border-color: var(--bdr) !important;
+}
+.test-mode-banner {
+  background: linear-gradient(135deg, rgba(15, 110, 86, 0.9), rgba(4, 52, 44, 0.95));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #ffffff;
+  padding: 12px 20px;
+  border-radius: var(--rad);
+  margin-bottom: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 4px 12px rgba(4, 52, 44, 0.2);
+  animation: pulseGrad 3s infinite alternate ease-in-out;
+}
+@keyframes pulseGrad {
+  0% { border-color: rgba(93, 202, 165, 0.2); }
+  100% { border-color: rgba(93, 202, 165, 0.6); }
+}
+.co-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.co-flex {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.co-grid-canchas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+.co-cancha-card {
+  border: 1.5px solid var(--bdr);
+  border-radius: var(--rad);
+  padding: 14px;
+  background: var(--surf);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.co-cancha-card:hover {
+  border-color: var(--acc);
+  box-shadow: var(--sh);
+}
+.co-cancha-card.selected {
+  border-color: var(--acc);
+  background: var(--g0);
+}
+.co-cancha-card.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  font-weight: 700;
+  color: var(--g8);
+  font-size: 16px;
+}
+.co-cancha-links {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.co-cancha-links a {
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--tx2);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--bdr);
+}
+.co-cancha-links a:hover {
+  background: var(--surf);
+  color: var(--acc);
+  border-color: var(--acc);
+}
+.co-badge-state {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.co-badge-state.si { background: var(--g0); color: var(--g8); }
+.co-badge-state.no { background: var(--r0); color: var(--r8); }
+.co-badge-state.pen { background: var(--gray0); color: var(--gray6); }
+.co-rep-card {
+  background: var(--surf);
+  border: 1.5px solid var(--a1);
+  border-radius: var(--rad);
+  padding: 12px;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 </style>
 </head>
@@ -339,6 +451,7 @@ tr:hover td{background:var(--gray0)}
   <div class="ni" onclick="nav('ranking')">🏆 <span>Rankings</span></div>
   <div class="nav-sec">Fechas</div>
   <div class="ni" onclick="nav('fechas')">📅 <span>Ver fechas</span></div>
+  <div class="ni" onclick="nav('coordinacion')">🤝 <span>Coordinación</span></div>
   <div class="ni" onclick="nav('live')">⛳ <span>Anotar en Vivo</span></div>
   <div class="ni hidden" id="ni-sb-carga" onclick="nav('carga')">✏️ <span>Cargar fecha</span></div>
   <div class="nav-sec">Jugadores</div>
@@ -412,8 +525,10 @@ const storage = {
 };
 
 let IS_ADMIN = storage.get('golf_is_admin') === 'true';
+let IS_TEST_MODE = storage.get('golf_test_mode') === 'true';
 let APPS_SCRIPT_URL = storage.get('golf_apps_script_url') || 'https://script.google.com/macros/s/AKfycbyjOurB_d-mv_TDhu6YI3Cs-w6Zp-aMHfcNF5v1GqHHIzdvf-9wqocWm6vEkTz2MgfzhA/exec';
 const SPREADSHEET_ID = "1h_R6k50cU3W9e8E-53nxmpmCHd771uTh2erYE5lw5pk"; // Ingresa el ID de tu Google Sheet publicado
+let COORDINATION = [];
 
 // GIDs de cada hoja en tu Google Sheet (modificar si los de tu planilla varían)
 const GIDS = {
@@ -421,7 +536,8 @@ const GIDS = {
   canchas: "11111111", // Reemplazar con el GID real de tu pestaña 'canchas'
   calendario: "22222222", // Reemplazar con el GID real de tu pestaña 'calendario'
   salidas: "33333333", // Reemplazar con el GID real de tu pestaña 'salidas'
-  resultados: "44444444" // Reemplazar con el GID real de tu pestaña 'resultados'
+  resultados: "44444444", // Reemplazar con el GID real de tu pestaña 'resultados'
+  coordinacion: "55555555" // GID real de tu pestaña 'coordinacion'
 };
 
 // Función para parsear CSV a objetos JSON de manera limpia y robusta
@@ -495,6 +611,13 @@ async function cargarDesdeGoogleSheets() {
       fetchTab("resultados")
     ]);
 
+    let coordinationRaw = [];
+    try {
+      coordinationRaw = await fetchTab("coordinacion");
+    } catch (e) {
+      console.warn("ℹ️ No se pudo descargar la pestaña 'coordinacion' (se inicializa vacía):", e);
+    }
+
     // 1. Cargar Jugadores
     if (playersRaw && playersRaw.length) {
       TP = playersRaw.map(p => ({
@@ -516,7 +639,9 @@ async function cargarDesdeGoogleSheets() {
         par: String(c.par).split(",").map(Number),
         hdi: String(c.hdi).split(",").map(Number),
         slope: Number(c.slope),
-        rating: Number(c.rating)
+        rating: Number(c.rating),
+        web: c.web_url || "",
+        map: c.map_url || ""
       }));
     }
 
@@ -527,17 +652,65 @@ async function cargarDesdeGoogleSheets() {
         date: s.date,
         course: s.course_id || null,
         status: s.status,
-        doble: s.is_double === true || String(s.is_double).toUpperCase() === "TRUE"
+        doble: s.is_double === true || String(s.is_double).toUpperCase() === "TRUE",
+        deadline: s.confirm_deadline || null
       }));
     }
 
-    // 4. Reconstruir FD (Resultados y scores por fecha)
+    // Inyección de Fecha de Simulación si el modo de prueba está activo
+    if (IS_TEST_MODE) {
+      if (!COURSES.some(c => c.id === "cnsi")) {
+        COURSES.push({
+          id: "cnsi",
+          name: "Club Náutico San Isidro",
+          city: "San Isidro",
+          par: [4,3,4,4,4,5,4,3,4,4,4,5,4,3,5,4,3,4],
+          hdi: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18],
+          slope: 113,
+          rating: 72,
+          web: "https://cnsi.org.ar",
+          map: "https://maps.google.com/?q=Club+Nautico+San+Isidro"
+        });
+      }
+      if (!SCHED.some(s => s.num === 99)) {
+        SCHED.push({
+          num: 99,
+          date: "Simulación en Vivo",
+          course: "cnsi",
+          status: "upcoming",
+          doble: false,
+          deadline: null
+        });
+      }
+    }
+
+    // 4. Cargar Coordinación
+    if (coordinationRaw && coordinationRaw.length) {
+      COORDINATION = coordinationRaw.map(c => ({
+        dateNum: Number(c.date_num),
+        playerId: Number(c.player_id),
+        confirmed: c.confirmed === true || String(c.confirmed).toUpperCase() === "TRUE",
+        votedCourseId: c.voted_course_id || "",
+        customCourseName: c.custom_course_name || "",
+        customCourseWeb: c.custom_course_web || "",
+        customCourseMap: c.custom_course_map || "",
+        replacementName: c.replacement_name || "",
+        replacementPhone: c.replacement_phone || "",
+        replacementMatricula: c.replacement_matricula || "",
+        replacementHcp: c.replacement_hcp ? Number(c.replacement_hcp) : null,
+        lastUpdated: c.last_updated || ""
+      }));
+    } else {
+      COORDINATION = [];
+    }
+
+    // 5. Reconstruir FD (Resultados y scores por fecha)
     const nuevoFD = {};
     SCHED.forEach(s => {
       const flightsForDate = flightsRaw.filter(f => Number(f.date_num) === s.num);
       const scoresForDate = scoresRaw.filter(sc => Number(sc.date_num) === s.num);
       
-      if (s.status === "played" || flightsForDate.length > 0 || scoresForDate.length > 0) {
+      if (s.status === "played" || flightsForDate.length > 0 || scoresForDate.length > 0 || s.num === 99) {
         const lineas = flightsForDate.map(f => ({
           num: Number(f.flight_num),
           hora: f.tee_time,
@@ -912,6 +1085,13 @@ function nav(p){
   const mc=document.getElementById('MC');
   mc.innerHTML='';
   
+  if (IS_TEST_MODE) {
+    const banner = document.createElement('div');
+    banner.className = 'test-mode-banner';
+    banner.innerHTML = `🧪 <strong>Modo Simulación Activo</strong> — Anotá hoyos de prueba para ver el ranking en vivo.`;
+    mc.appendChild(banner);
+  }
+  
   const renderers = {
     dashboard: rDash,
     ranking: rRank,
@@ -920,7 +1100,8 @@ function nav(p){
     jugadores: rJug,
     stats: rStats,
     canchas: rCanchas,
-    live: rLive
+    live: rLive,
+    coordinacion: rCoord
   };
   
   if (renderers[p]) {
@@ -2089,6 +2270,7 @@ function updateNavUI() {
     let html = '';
     if (IS_ADMIN) {
       html += `
+        <div class="drawer-item" onclick="navMobile('coordinacion')">🤝 Coordinación</div>
         <div class="drawer-item" onclick="navMobile('live')">⛳ Marcador en Vivo</div>
         <div class="drawer-item" onclick="navMobile('jugadores')">👤 Plantel Jugadores</div>
         <div class="drawer-item" onclick="navMobile('stats')">📊 Estadísticas</div>
@@ -2098,6 +2280,7 @@ function updateNavUI() {
       `;
     } else {
       html += `
+        <div class="drawer-item" onclick="navMobile('coordinacion')">🤝 Coordinación</div>
         <div class="drawer-item" onclick="navMobile('jugadores')">👤 Plantel Jugadores</div>
         <div class="drawer-item" onclick="navMobile('stats')">📊 Estadísticas</div>
         <div class="drawer-item" onclick="navMobile('canchas')">🗺️ Canchas</div>
@@ -2171,10 +2354,27 @@ function openAdminSettingsModal() {
           <button class="mc-btn" onclick="closeMD()">×</button>
         </div>
         <div class="mb">
-          <div class="fg">
+          <div class="fg" style="margin-bottom:20px;">
             <label class="fl">URL del Web App de Google Apps Script</label>
             <input type="text" class="fc" id="admin-url-input" placeholder="https://script.google.com/macros/s/.../exec" value="${APPS_SCRIPT_URL}">
             <div style="font-size:11px;color:var(--txm);margin-top:4px;">Introducí la URL del Web App publicada en tu Apps Script para guardar y sincronizar en vivo.</div>
+          </div>
+          
+          <div style="border-top: 1px solid var(--bdr); padding-top: 16px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 10px 0; color: var(--tx);">🧪 Zona de Pruebas & Simulación</h4>
+            
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+              <div style="padding-right:12px;">
+                <strong style="display:block; font-size:14px; color:var(--tx);">Modo Simulación Activo</strong>
+                <span style="font-size:11px; color:var(--txm);">Habilita a todos a cargar hoyos en vivo simultáneamente usando la Fecha 99 de prueba sin alterar las fechas reales.</span>
+              </div>
+              <label class="switch" style="position:relative; display:inline-block; width:50px; height:26px; flex-shrink:0;">
+                <input type="checkbox" id="admin-test-mode-toggle" ${IS_TEST_MODE ? 'checked' : ''} style="opacity:0; width:0; height:0;">
+                <span class="slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; transition:.3s; border-radius:34px;"></span>
+              </label>
+            </div>
+            
+            <button id="btn-clear-sim" class="btn" style="background:#dc2626; color:white; border:none; width:100%; font-weight:600; padding:10px; border-radius:var(--rad);" onclick="clearSimulationData()">🧹 Limpiar Datos de Simulación (Fecha 99)</button>
           </div>
         </div>
         <div class="mf">
@@ -2184,14 +2384,57 @@ function openAdminSettingsModal() {
       </div>
     </div>
   `;
+  
+  // Estilizar dinámicamente el switch slider
+  const slider = document.querySelector('.slider');
+  if (slider) {
+    slider.style.cssText = `
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: ${IS_TEST_MODE ? 'var(--acc)' : '#4b5563'};
+      transition: .3s;
+      border-radius: 34px;
+    `;
+    const input = document.getElementById('admin-test-mode-toggle');
+    
+    const dot = document.createElement('span');
+    dot.style.cssText = `
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: ${IS_TEST_MODE ? '28px' : '4px'};
+      bottom: 4px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    `;
+    slider.appendChild(dot);
+    
+    input.addEventListener('change', function() {
+      if (this.checked) {
+        slider.style.backgroundColor = 'var(--acc)';
+        dot.style.left = '28px';
+      } else {
+        slider.style.backgroundColor = '#4b5563';
+        dot.style.left = '4px';
+      }
+    });
+  }
 }
 
 function saveAdminSettings() {
   const url = document.getElementById('admin-url-input').value.trim();
   APPS_SCRIPT_URL = url;
   storage.set('golf_apps_script_url', url);
+  
+  const testModeActive = document.getElementById('admin-test-mode-toggle').checked;
+  IS_TEST_MODE = testModeActive;
+  storage.set('golf_test_mode', testModeActive ? 'true' : 'false');
+  
   closeMD();
-  alert("Configuración de Apps Script guardada correctamente.");
+  alert("Configuración guardada correctamente.");
   cargarDesdeGoogleSheets().then(() => {
     nav('dashboard');
   });
@@ -2209,7 +2452,9 @@ let liveSyncTimeout = null;
 
 function rLive(el) {
   const activeDates = SCHED.filter(s => s.status === 'upcoming' || s.status === 'played');
-  if (!liveDateNum && activeDates.length > 0) {
+  if (IS_TEST_MODE) {
+    liveDateNum = 99;
+  } else if (!liveDateNum && activeDates.length > 0) {
     const upcoming = activeDates.find(s => s.status === 'upcoming');
     liveDateNum = upcoming ? upcoming.num : activeDates[activeDates.length - 1].num;
   } else if (!liveDateNum) {
@@ -2308,7 +2553,7 @@ function onLivePlayerChange(pid) {
     
     livePlayerId = newPid;
     liveHoles = new Array(18).fill(0);
-    rLive(document.getElementById('main-content'));
+    rLive(document.getElementById('MC'));
     return;
   }
 
@@ -2328,7 +2573,7 @@ function onLiveDateChange(dnum) {
   liveDateNum = parseInt(dnum);
   livePlayerId = null;
   liveHoles = new Array(18).fill(0);
-  rLive(document.getElementById('main-content'));
+  rLive(document.getElementById('MC'));
 }
 
 function renderLiveHolesPager() {
@@ -2576,6 +2821,552 @@ function triggerLiveSync() {
     }
     renderLiveHolesPager();
   }, 1200);
+}
+
+let selectedCoordDateNum = null;
+let customCourseProposed = null; // Guardar cancha propuesta { name, web, map }
+
+function rCoord(el) {
+  // Buscar fechas futuras para coordinar
+  const futureDates = SCHED.filter(s => s.status === 'upcoming' || s.status === 'pending');
+  if (!selectedCoordDateNum && futureDates.length > 0) {
+    selectedCoordDateNum = futureDates[0].num;
+  } else if (!selectedCoordDateNum) {
+    selectedCoordDateNum = SCHED[SCHED.length - 1]?.num || 1;
+  }
+  
+  const currentSched = getSched(selectedCoordDateNum);
+  if (!currentSched) {
+    el.innerHTML = `<div class="ph"><h1>🤝 Coordinación de Fechas</h1><p>No hay fechas configuradas.</p></div>`;
+    return;
+  }
+  
+  // Opciones de selector de fecha
+  let dateOptions = "";
+  SCHED.forEach(s => {
+    dateOptions += `<option value="${s.num}" ${s.num === selectedCoordDateNum ? 'selected' : ''}>Fecha ${s.num} — ${s.date} (${s.status === 'played' ? 'Jugada' : 'Coordinando'})</option>`;
+  });
+  
+  // Agrupar respuestas
+  const answers = COORDINATION.filter(c => c.dateNum === selectedCoordDateNum);
+  const confirmed = [];
+  const absent = [];
+  const pending = [];
+  
+  // Contadores de votación de canchas
+  const courseVotes = {}; // courseId -> count
+  
+  TP.forEach(p => {
+    const ans = answers.find(a => a.playerId === p.id);
+    if (!ans) {
+      pending.push(p);
+    } else if (ans.confirmed) {
+      confirmed.push({ p, ans });
+      const cid = ans.votedCourseId;
+      if (cid) {
+        courseVotes[cid] = (courseVotes[cid] || 0) + 1;
+      }
+    } else {
+      absent.push({ p, ans });
+    }
+  });
+  
+  // Renderizar porcentaje de votos en tiempo real
+  const totalVotes = confirmed.length;
+  let votingStatsHtml = "";
+  if (totalVotes > 0) {
+    const sortedVotes = Object.entries(courseVotes).sort((a,b) => b[1] - a[1]);
+    votingStatsHtml = `
+      <div style="margin-top:12px;">
+        <h4 style="margin:0 0 8px 0;font-size:13px;color:var(--tx2);">Votación de Canchas en Vivo:</h4>
+        ${sortedVotes.map(([cid, count]) => {
+          const course = COURSES.find(c => c.id === cid) || { name: cid };
+          const pct = Math.round((count / totalVotes) * 100);
+          return `
+            <div style="margin-bottom:8px;">
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;">
+                <strong>${course.name}</strong>
+                <span>${count} voto(s) (${pct}%)</span>
+              </div>
+              <div style="height:6px;background:var(--bdr);border-radius:3px;overflow:hidden;">
+                <div style="height:100%;width:${pct}%;background:var(--acc);border-radius:3px;"></div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  } else {
+    votingStatsHtml = `<p style="font-size:12px;color:var(--txm);margin-top:10px;font-style:italic;">Aún no hay votos registrados para esta fecha.</p>`;
+  }
+
+  // Listas de estatus
+  let confirmedListHtml = confirmed.map(x => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:var(--bg);border:1px solid var(--bdr);border-radius:8px;margin-bottom:6px;">
+      <div>
+        <strong style="font-size:13px;color:var(--tx);">${x.p.name}</strong>
+        <span style="display:block;font-size:11px;color:var(--txm);">Votó: ${COURSES.find(c => c.id === x.ans.votedCourseId)?.name || x.ans.customCourseName || 'Sin voto'}</span>
+      </div>
+      <span class="co-badge-state si">Juega</span>
+    </div>
+  `).join('');
+  if (!confirmedListHtml) confirmedListHtml = `<p style="font-size:12px;color:var(--txm);font-style:italic;">Nadie ha confirmado todavía.</p>`;
+
+  let absentListHtml = absent.map(x => {
+    let repHtml = "";
+    if (x.ans.replacementName) {
+      repHtml = `
+        <div class="co-rep-card">
+          <div style="font-size:11px;font-weight:600;color:var(--a6)">💡 Reemplazo recomendado:</div>
+          <div style="font-size:12px;color:var(--tx)"><strong>${x.ans.replacementName}</strong> ${x.ans.replacementHcp ? `(HCP: ${x.ans.replacementHcp})` : ''}</div>
+          ${x.ans.replacementPhone ? `<div style="font-size:11px;color:var(--tx2)">📞 Tel: ${x.ans.replacementPhone}</div>` : ''}
+          ${IS_ADMIN ? `
+            <div style="display:flex;gap:6px;margin-top:4px;">
+              <button class="btn" style="padding:2px 8px;font-size:10px;" onclick="navigator.clipboard.writeText('${x.ans.replacementPhone}');alert('Teléfono copiado!')">📋 Copiar</button>
+              <a href="https://wa.me/${String(x.ans.replacementPhone).replace(/\D/g,'')}" target="_blank" class="btn" style="padding:2px 8px;font-size:10px;background:#25d366;color:white;border:none;text-decoration:none;display:inline-flex;align-items:center;">💬 WhatsApp</a>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+    return `
+      <div style="padding:8px;background:var(--bg);border:1px solid var(--bdr);border-radius:8px;margin-bottom:6px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <strong style="font-size:13px;color:var(--tx);">${x.p.name}</strong>
+          <span class="co-badge-state no">De baja</span>
+        </div>
+        ${repHtml}
+      </div>
+    `;
+  }).join('');
+  if (!absentListHtml) absentListHtml = `<p style="font-size:12px;color:var(--txm);font-style:italic;">No hay bajas registradas.</p>`;
+
+  let pendingListHtml = pending.map(p => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:var(--bg);border:1px solid var(--bdr);border-radius:8px;margin-bottom:6px;">
+      <strong style="font-size:13px;color:var(--tx);">${p.name}</strong>
+      <span class="co-badge-state pen">Pendiente</span>
+    </div>
+  `).join('');
+  if (!pendingListHtml) pendingListHtml = `<p style="font-size:12px;color:var(--txm);font-style:italic;">¡Todos respondieron!</p>`;
+
+  // Panel de Autenticación o Formulario
+  const loggedPlayerId = storage.get('golf_player_id');
+  const loggedPlayerPin = storage.get('golf_player_pin');
+  
+  let formPanelHtml = "";
+  if (!loggedPlayerId) {
+    let playerSelectOptions = `<option value="" disabled selected>-- Seleccioná tu nombre --</option>`;
+    TP.forEach(p => {
+      playerSelectOptions += `<option value="${p.id}">${p.name}</option>`;
+    });
+    formPanelHtml = `
+      <div class="card" style="border:1.5px dashed var(--bdr);">
+        <h3 style="margin-top:0;display:flex;align-items:center;gap:8px;">🔒 Registrá tu Asistencia</h3>
+        <p style="font-size:12.5px;color:var(--tx2);margin-bottom:16px;">Seleccioná tu nombre e ingresá tu PIN de 4 dígitos. Si es tu primera vez, el PIN que ingreses quedará guardado como tu clave.</p>
+        
+        <div class="fg" style="margin-bottom:12px;">
+          <label class="fl">¿Quién sos?</label>
+          <select class="fc" id="co-auth-player-select">
+            ${playerSelectOptions}
+          </select>
+        </div>
+        <div class="fg" style="margin-bottom:16px;">
+          <label class="fl">PIN de 4 dígitos</label>
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" class="fc" id="co-auth-pin-input" placeholder="••••" style="text-align:center;font-size:20px;letter-spacing:6px;">
+        </div>
+        
+        <button class="btn btn-p" style="width:100%;font-weight:600;padding:12px;" onclick="coAuthenticatePlayer()">Ingresar y Votar 🔑</button>
+      </div>
+    `;
+  } else {
+    const player = getPlayer(loggedPlayerId);
+    const existingAnswer = answers.find(a => a.playerId === player?.id);
+    const playsThisDate = existingAnswer ? existingAnswer.confirmed : true;
+    const activePlay = existingAnswer ? (existingAnswer.confirmed ? 'yes' : 'no') : 'yes';
+    
+    let courseSelectorHtml = "";
+    COURSES.forEach(c => {
+      const selected = (existingAnswer && existingAnswer.votedCourseId === c.id) || (customCourseProposed === null && !existingAnswer && c.id === 'cnsi');
+      courseSelectorHtml += `
+        <div class="co-cancha-card ${selected ? 'selected' : ''}" onclick="coSelectCourse('${c.id}')" id="card-${c.id}">
+          <div>
+            <strong style="color:var(--tx);font-size:14px;display:block;">${c.name}</strong>
+            <span style="font-size:11px;color:var(--txm);">${c.city || ''} (Par ${c.par.reduce((a,b)=>a+b,0)})</span>
+          </div>
+          <div class="co-cancha-links" onclick="event.stopPropagation();">
+            ${c.web ? `<a href="${c.web}" target="_blank">🌐 Sitio Web</a>` : ''}
+            ${c.map ? `<a href="${c.map}" target="_blank">📍 Ubicación</a>` : ''}
+          </div>
+        </div>
+      `;
+    });
+    
+    if (customCourseProposed) {
+      courseSelectorHtml += `
+        <div class="co-cancha-card selected" onclick="coSelectCourse('custom')" id="card-custom">
+          <div>
+            <strong style="color:var(--tx);font-size:14px;display:block;">🆕 ${customCourseProposed.name}</strong>
+            <span style="font-size:11px;color:var(--txm);">Cancha propuesta por vos</span>
+          </div>
+          <div class="co-cancha-links" onclick="event.stopPropagation();">
+            ${customCourseProposed.web ? `<a href="${customCourseProposed.web}" target="_blank">🌐 Web</a>` : ''}
+            ${customCourseProposed.map ? `<a href="${customCourseProposed.map}" target="_blank">📍 Maps</a>` : ''}
+          </div>
+        </div>
+      `;
+    } else {
+      courseSelectorHtml += `
+        <div class="co-cancha-card" onclick="coOpenCustomCourseModal()" style="border:1.5px dashed var(--bdr);justify-content:center;align-items:center;background:none;padding:24px;">
+          <span style="font-size:24px;margin-bottom:4px;">➕</span>
+          <strong style="color:var(--acc);font-size:13px;">Proponer Cancha Nueva</strong>
+        </div>
+      `;
+    }
+
+    formPanelHtml = `
+      <div class="card" style="border:1.5px solid var(--acc);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+          <div>
+            <h3 style="margin:0;">✍️ Tu Coordinación</h3>
+            <span style="font-size:12px;color:var(--txm);">Hola, <strong>${player?.name || 'Jugador'}</strong></span>
+          </div>
+          <button class="btn" style="padding:4px 8px;font-size:11px;" onclick="coLogoutPlayer()">Cambiar Jugador 👤</button>
+        </div>
+        
+        <div class="fg" style="margin-bottom:16px;">
+          <label class="fl">¿Jugás la Fecha ${selectedCoordDateNum}?</label>
+          <div style="display:flex;gap:12px;margin-top:6px;">
+            <button class="btn ${activePlay === 'yes' ? 'btn-p' : ''}" style="flex:1;padding:12px;font-weight:600;" onclick="coSetPlaying(true)" id="btn-play-yes">✅ Sí, juego</button>
+            <button class="btn ${activePlay === 'no' ? 'btn-p' : ''}" style="flex:1;padding:12px;font-weight:600;background:${activePlay === 'no' ? '#dc2626' : ''};color:${activePlay === 'no' ? 'white' : ''};" onclick="coSetPlaying(false)" id="btn-play-no">❌ No juego</button>
+          </div>
+        </div>
+        
+        <!-- SECCIÓN CANCHA -->
+        <div id="co-section-cancha" class="${activePlay === 'yes' ? '' : 'hidden'}" style="margin-top:16px;border-top:1px solid var(--bdr);padding-top:16px;">
+          <h4 style="margin:0 0 6px 0;color:var(--tx);">Cancha de Preferencia</h4>
+          <p style="font-size:11.5px;color:var(--txm);margin-bottom:12px;">Selecciona la cancha donde te gustaría jugar esta fecha o propone una nueva.</p>
+          
+          <input type="hidden" id="co-selected-course-id" value="${existingAnswer?.votedCourseId || (customCourseProposed ? 'custom' : 'cnsi')}">
+          
+          <div class="co-grid-canchas">
+            ${courseSelectorHtml}
+          </div>
+        </div>
+        
+        <!-- SECCIÓN REEMPLAZO -->
+        <div id="co-section-reemplazo" class="${activePlay === 'no' ? '' : 'hidden'}" style="margin-top:16px;border-top:1px solid var(--bdr);padding-top:16px;">
+          <h4 style="margin:0 0 6px 0;color:var(--tx);">💡 ¿Recomendás un Reemplazo?</h4>
+          <p style="font-size:11.5px;color:var(--txm);margin-bottom:12px;">Si conocés a alguien que pueda jugar en tu lugar, completá sus datos para que lo contacte el coordinador.</p>
+          
+          <div class="fg" style="margin-bottom:8px;">
+            <label class="fl" style="font-size:11px;">Nombre Completo</label>
+            <input type="text" class="fc" id="co-rep-name" placeholder="Ej: Carlos Gómez" value="${existingAnswer?.replacementName || ''}">
+          </div>
+          <div class="fg" style="margin-bottom:8px;">
+            <label class="fl" style="font-size:11px;">Teléfono de Contacto</label>
+            <input type="tel" class="fc" id="co-rep-phone" placeholder="Ej: 1155556666" value="${existingAnswer?.replacementPhone || ''}">
+          </div>
+          <div class="fr" style="gap:8px;">
+            <div class="fg" style="flex:1;">
+              <label class="fl" style="font-size:11px;">Matrícula AAG</label>
+              <input type="text" class="fc" id="co-rep-mat" placeholder="Opcional" value="${existingAnswer?.replacementMatricula || ''}">
+            </div>
+            <div class="fg" style="flex:1;">
+              <label class="fl" style="font-size:11px;">Hándicap</label>
+              <input type="number" class="fc" id="co-rep-hcp" placeholder="Opcional" value="${existingAnswer?.replacementHcp || ''}">
+            </div>
+          </div>
+        </div>
+        
+        <button id="btn-submit-coordination" class="btn btn-p" style="width:100%;font-weight:600;padding:14px;margin-top:20px;" onclick="coSubmitResponse()">Enviar Coordinación 🚀</button>
+      </div>
+    `;
+  }
+
+  el.innerHTML = `
+    <div class="ph">
+      <h1>Coordinación de Fechas 🤝</h1>
+      <p>Confirmá tu asistencia, votá la cancha de la próxima fecha y recomendá reemplazos.</p>
+    </div>
+    
+    <div class="card" style="margin-bottom: 20px;">
+      <div class="fg">
+        <label class="fl">Seleccionar Fecha a Coordinar</label>
+        <select class="fc" id="co-date-select" onchange="coOnDateChange(this.value)">
+          ${dateOptions}
+        </select>
+      </div>
+      
+      <div style="margin-top:16px;background:var(--surf);border:1px solid var(--bdr);border-radius:10px;padding:12px;">
+        <div style="display:flex;justify-content:space-around;text-align:center;">
+          <div>
+            <div style="font-size:20px;font-weight:700;color:var(--g8);">${confirmed.length}</div>
+            <div style="font-size:11px;color:var(--txm);">Juegan</div>
+          </div>
+          <div style="border-left:1px solid var(--bdr);margin:0 10px;"></div>
+          <div>
+            <div style="font-size:20px;font-weight:700;color:var(--r8);">${absent.length}</div>
+            <div style="font-size:11px;color:var(--txm);">Ausentes</div>
+          </div>
+          <div style="border-left:1px solid var(--bdr);margin:0 10px;"></div>
+          <div>
+            <div style="font-size:20px;font-weight:700;color:var(--gray6);">${pending.length}</div>
+            <div style="font-size:11px;color:var(--txm);">Pendientes</div>
+          </div>
+        </div>
+        ${votingStatsHtml}
+      </div>
+    </div>
+    
+    <div style="display:grid;grid-template-columns:1fr;gap:20px;margin-bottom:40px;">
+      ${formPanelHtml}
+      
+      <div class="card">
+        <h3 style="margin-top:0;">📊 Plantel Convocado</h3>
+        
+        <div style="margin-bottom:16px;">
+          <h4 style="margin:0 0 8px 0;font-size:13px;color:var(--g8);display:flex;align-items:center;gap:6px;">🟢 Confirmados (${confirmed.length})</h4>
+          <div style="max-height:220px;overflow-y:auto;">
+            ${confirmedListHtml}
+          </div>
+        </div>
+        
+        <div style="margin-bottom:16px;">
+          <h4 style="margin:0 0 8px 0;font-size:13px;color:var(--r8);display:flex;align-items:center;gap:6px;">🔴 Ausentes y Reemplazos (${absent.length})</h4>
+          <div style="max-height:220px;overflow-y:auto;">
+            ${absentListHtml}
+          </div>
+        </div>
+        
+        <div>
+          <h4 style="margin:0 0 8px 0;font-size:13px;color:var(--gray6);display:flex;align-items:center;gap:6px;">⚪ Sin Confirmar (${pending.length})</h4>
+          <div style="max-height:220px;overflow-y:auto;">
+            ${pendingListHtml}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function coOnDateChange(val) {
+  selectedCoordDateNum = Number(val);
+  rCoord(document.getElementById('MC'));
+}
+
+function coAuthenticatePlayer() {
+  const pSelect = document.getElementById('co-auth-player-select');
+  const pinInput = document.getElementById('co-auth-pin-input');
+  
+  if (!pSelect.value) {
+    alert("Por favor, selecciona tu nombre.");
+    return;
+  }
+  if (!pinInput.value || pinInput.value.length !== 4) {
+    alert("Por favor, ingresa tu PIN numérico de 4 dígitos.");
+    return;
+  }
+  
+  storage.set('golf_player_id', pSelect.value);
+  storage.set('golf_player_pin', pinInput.value);
+  
+  rCoord(document.getElementById('MC'));
+}
+
+function coLogoutPlayer() {
+  storage.remove('golf_player_id');
+  storage.remove('golf_player_pin');
+  customCourseProposed = null;
+  rCoord(document.getElementById('MC'));
+}
+
+function coSetPlaying(confirmed) {
+  const secCancha = document.getElementById('co-section-cancha');
+  const secReemplazo = document.getElementById('co-section-reemplazo');
+  const btnYes = document.getElementById('btn-play-yes');
+  const btnNo = document.getElementById('btn-play-no');
+  
+  if (confirmed) {
+    secCancha?.classList.remove('hidden');
+    secReemplazo?.classList.add('hidden');
+    btnYes?.classList.add('btn-p');
+    btnNo?.classList.remove('btn-p');
+    btnNo?.removeAttribute('style');
+  } else {
+    secCancha?.classList.add('hidden');
+    secReemplazo?.classList.remove('hidden');
+    btnYes?.classList.remove('btn-p');
+    btnNo?.classList.add('btn-p');
+    btnNo?.setAttribute('style', 'flex:1;padding:12px;font-weight:600;background:#dc2626;color:white;border:none;');
+  }
+}
+
+function coSelectCourse(cid) {
+  const selectedCourseInput = document.getElementById('co-selected-course-id');
+  if (selectedCourseInput) selectedCourseInput.value = cid;
+  
+  document.querySelectorAll('.co-cancha-card').forEach(el => {
+    el.classList.remove('selected');
+  });
+  document.getElementById(`card-${cid}`)?.classList.add('selected');
+}
+
+function coOpenCustomCourseModal() {
+  document.getElementById('MOD').innerHTML = `
+    <div class="mo" onclick="closeM(event)">
+      <div class="md" style="max-width: 400px;">
+        <div class="mh">
+          <h3>Proponer Cancha Nueva ⛳</h3>
+          <button class="mc-btn" onclick="closeMD()">×</button>
+        </div>
+        <div class="mb">
+          <div class="fg" style="margin-bottom:12px;">
+            <label class="fl">Nombre de la Cancha</label>
+            <input type="text" class="fc" id="co-custom-name" placeholder="Ej: Hurlingham Club">
+          </div>
+          <div class="fg" style="margin-bottom:12px;">
+            <label class="fl">Sitio Web (Opcional)</label>
+            <input type="url" class="fc" id="co-custom-web" placeholder="https://...">
+          </div>
+          <div class="fg" style="margin-bottom:12px;">
+            <label class="fl">Ubicación Google Maps (Opcional)</label>
+            <input type="url" class="fc" id="co-custom-map" placeholder="https://maps.google.com/...">
+          </div>
+        </div>
+        <div class="mf">
+          <button class="btn" onclick="closeMD()">Cancelar</button>
+          <button class="btn btn-p" onclick="coSaveCustomCourse()">Confirmar Propuesta 🚀</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function coSaveCustomCourse() {
+  const name = document.getElementById('co-custom-name').value.trim();
+  const web = document.getElementById('co-custom-web').value.trim();
+  const map = document.getElementById('co-custom-map').value.trim();
+  
+  if (!name) {
+    alert("Ingresá al menos el nombre de la cancha.");
+    return;
+  }
+  
+  customCourseProposed = { name, web, map };
+  closeMD();
+  rCoord(document.getElementById('MC'));
+}
+
+async function coSubmitResponse() {
+  const playerId = Number(storage.get('golf_player_id'));
+  const pinEntered = storage.get('golf_player_pin');
+  const btn = document.getElementById('btn-submit-coordination');
+  
+  if (!playerId || !pinEntered) {
+    alert("Debe autenticarse primero.");
+    return;
+  }
+  
+  const btnYes = document.getElementById('btn-play-yes');
+  const confirmed = btnYes.classList.contains('btn-p');
+  
+  let votedCourseId = "";
+  let customCourse = null;
+  let replacement = null;
+  
+  if (confirmed) {
+    votedCourseId = document.getElementById('co-selected-course-id').value;
+    if (votedCourseId === 'custom') {
+      customCourse = customCourseProposed;
+    }
+  } else {
+    replacement = {
+      name: document.getElementById('co-rep-name').value.trim(),
+      phone: document.getElementById('co-rep-phone').value.trim(),
+      matricula: document.getElementById('co-rep-mat').value.trim(),
+      hcp: document.getElementById('co-rep-hcp').value.trim() ? Number(document.getElementById('co-rep-hcp').value.trim()) : ""
+    };
+  }
+  
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = "Registrando respuesta...";
+  }
+  
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'saveCoordination',
+        dateNum: selectedCoordDateNum,
+        playerId,
+        pinEntered,
+        confirmed,
+        votedCourseId,
+        customCourse,
+        replacement
+      })
+    });
+    
+    const data = await resp.json();
+    if (data.success) {
+      alert("✅ Coordinación guardada con éxito.");
+      customCourseProposed = null;
+      cargarDesdeGoogleSheets().then(() => {
+        rCoord(document.getElementById('MC'));
+      });
+    } else {
+      alert("❌ Error: " + data.error);
+    }
+  } catch (err) {
+    alert("❌ Error al enviar datos. Verifique su conexión.");
+    console.error(err);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = "Enviar Respuesta 🚀";
+    }
+  }
+}
+
+async function clearSimulationData() {
+  if (!confirm("⚠️ ¿Estás seguro de que querés eliminar todos los scores y salidas de simulación (Fecha 99)? Esta acción es irreversible.")) {
+    return;
+  }
+  const btn = document.getElementById('btn-clear-sim');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = "Limpiando...";
+  }
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'clearSimulationData',
+        pin: 'golf2026'
+      })
+    });
+    const res = await resp.json();
+    if (res.success) {
+      alert("✅ Datos de simulación eliminados correctamente.");
+      closeMD();
+      cargarDesdeGoogleSheets().then(() => {
+        nav('dashboard');
+      });
+    } else {
+      alert("❌ Error al limpiar datos: " + res.error);
+    }
+  } catch (err) {
+    alert("❌ Error de red al limpiar datos.");
+    console.error(err);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = "Limpiar Datos de Simulación 🧹";
+    }
+  }
 }
 
 // Registrar Service Worker para soporte offline
