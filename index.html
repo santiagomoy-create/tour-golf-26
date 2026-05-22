@@ -2477,6 +2477,16 @@ function openAdminSettingsModal() {
 
 function saveAdminSettings() {
   const url = document.getElementById('admin-url-input').value.trim();
+  
+  if (url !== "") {
+    // Validar que la URL de Apps Script tenga el formato correcto y termine en /exec
+    const appsScriptRegex = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{20,}\/exec$/;
+    if (!appsScriptRegex.test(url)) {
+      alert("⚠️ La URL del Web App no es válida o está incompleta.\n\nDebe tener el formato completo:\nhttps://script.google.com/macros/s/.../exec\n\nAsegurate de haber copiado la URL COMPLETA (incluyendo el '/exec' al final) y de no tener caracteres recortados al pegar.");
+      return;
+    }
+  }
+  
   APPS_SCRIPT_URL = url;
   storage.set('golf_apps_script_url', url);
   
