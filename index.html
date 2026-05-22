@@ -3325,7 +3325,7 @@ async function coSubmitResponse() {
       alert("❌ Error: " + data.error);
     }
   } catch (err) {
-    alert("❌ Error al enviar datos. Verifique su conexión.");
+    alert("❌ Error al enviar datos: " + err.message + "\n\nVerifique la URL del Web App de Google Apps Script en la sección de Admin Config de la app, y asegúrese de haber configurado la implementación como ejecutable por 'Mí' y accesible para 'Cualquier persona' (Anyone).");
     console.error(err);
   } finally {
     if (btn) {
@@ -3364,7 +3364,7 @@ async function clearSimulationData() {
       alert("❌ Error al limpiar datos: " + res.error);
     }
   } catch (err) {
-    alert("❌ Error de red al limpiar datos.");
+    alert("❌ Error de red al limpiar datos: " + err.message + "\n\nVerifique la URL del Web App en la sección de Admin Config de la app.");
     console.error(err);
   } finally {
     if (btn) {
