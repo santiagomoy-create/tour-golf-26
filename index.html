@@ -587,36 +587,13 @@ function parseCSV(text) {
 
 // Función principal para refrescar el torneo desde Google Sheets
 async function cargarDesdeGoogleSheets() {
-  if (!SPREADSHEET_ID || SPREADSHEET_ID === "TU_GOOGLE_SHEET_ID_AQUI") {
-    console.log("ℹ️ Usando datos de respaldo locales del Torneo (Google Sheets no configurado).");
-    return;
-  }
-  
-  try {
-    const fetchTab = async (tabName) => {
-      const gid = GIDS[tabName];
-      const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/pub?gid=${gid}&output=csv&cachebust=${Date.now()}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`Error HTTP: ${res.status} al leer ${tabName}`);
-      const text = await res.text();
-      return parseCSV(text);
-    };
-
-    console.log("⚡ Descargando datos desde Google Sheets...");
-    const [playersRaw, coursesRaw, schedRaw, flightsRaw, scoresRaw] = await Promise.all([
-      fetchTab("jugadores"),
-      fetchTab("canchas"),
-      fetchTab("calendario"),
-      fetchTab("salidas"),
-      fetchTab("resultados")
-    ]);
-
-    let coordinationRaw = [];
-    try {
-      coordinationRaw = await fetchTab("coordinacion");
-    } catch (e) {
-      console.warn("ℹ️ No se pudo descargar la pestaña 'coordinacion' (se inicializa vacía):", e);
-    }
+  const procesarDatosPlanilla = (payload) => {
+    const playersRaw = payload.players || [];
+    const coursesRaw = payload.courses || [];
+    const schedRaw = payload.sched || [];
+    const flightsRaw = payload.flights || [];
+    const scoresRaw = payload.scores || [];
+    const coordinationRaw = payload.coordination || [];
 
     // 1. Cargar Jugadores
     if (playersRaw && playersRaw.length) {
@@ -624,9 +601,9 @@ async function cargarDesdeGoogleSheets() {
         id: Number(p.id),
         name: p.name,
         short: p.short_name,
-        hcp: p.handicap !== null ? Number(p.handicap) : null,
+        hcp: p.handicap !== "" && p.handicap !== null ? Number(p.handicap) : null,
         mat: String(p.matricula || ""),
-        ini: p.initials || p.short_name.substring(0, 2).toUpperCase()
+        ini: p.initials || String(p.short_name || "").substring(0, 2).toUpperCase()
       }));
     }
 
@@ -635,11 +612,11 @@ async function cargarDesdeGoogleSheets() {
       COURSES = coursesRaw.map(c => ({
         id: c.id,
         name: c.name,
-        city: c.city,
-        par: String(c.par).split(",").map(Number),
-        hdi: String(c.hdi).split(",").map(Number),
-        slope: Number(c.slope),
-        rating: Number(c.rating),
+        city: c.city || "",
+        par: String(c.par || "").split(",").map(Number),
+        hdi: String(c.hdi || "").split(",").map(Number),
+        slope: Number(c.slope || 113),
+        rating: Number(c.rating || 72),
         web: c.web_url || "",
         map: c.map_url || ""
       }));
@@ -717,9 +694,73 @@ async function cargarDesdeGoogleSheets() {
     });
 
     FD = nuevoFD;
-    console.log("✓ Base de datos Google Sheets cargada exitosamente.");
-  } catch (e) {
-    console.error("⚠️ Falló la conexión con Google Sheets. Usando datos estáticos de respaldo:", e);
+  };
+
+  if (!APPS_SCRIPT_URL) {
+    console.log("ℹ️ Usando datos de respaldo locales del Torneo (Apps Script no configurado).");
+    return;
+  }
+
+  try {
+    console.log("⚡ Descargando datos desde Google Sheets vía Web App...");
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'getSpreadsheetData' })
+    });
+    
+    if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Error en el servidor");
+    
+    const payload = data.data;
+    console.log("✅ Datos descargados exitosamente vía Web App.");
+    procesarDatosPlanilla(payload);
+  } catch (err) {
+    console.warn("⚠️ Falló descarga vía Web App. Intentando descarga CSV tradicional...", err);
+    // FALLBACK A DESCARGA CSV TRADICIONAL
+    try {
+      if (!SPREADSHEET_ID || SPREADSHEET_ID === "TU_GOOGLE_SHEET_ID_AQUI") {
+        console.log("ℹ️ No hay ID de planilla configurado para descarga CSV.");
+        return;
+      }
+      
+      const fetchTab = async (tabName) => {
+        const gid = GIDS[tabName];
+        const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/pub?gid=${gid}&output=csv&cachebust=${Date.now()}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Error HTTP: ${res.status} al leer ${tabName}`);
+        const text = await res.text();
+        return parseCSV(text);
+      };
+
+      const [playersRaw, coursesRaw, schedRaw, flightsRaw, scoresRaw] = await Promise.all([
+        fetchTab("jugadores"),
+        fetchTab("canchas"),
+        fetchTab("calendario"),
+        fetchTab("salidas"),
+        fetchTab("resultados")
+      ]);
+
+      let coordinationRaw = [];
+      try {
+        coordinationRaw = await fetchTab("coordinacion");
+      } catch (e) {
+        console.warn("ℹ️ No se pudo descargar la pestaña 'coordinacion' (se inicializa vacía):", e);
+      }
+
+      procesarDatosPlanilla({
+        players: playersRaw,
+        courses: coursesRaw,
+        sched: schedRaw,
+        flights: flightsRaw,
+        scores: scoresRaw,
+        coordination: coordinationRaw
+      });
+      console.log("✓ Base de datos Google Sheets cargada exitosamente vía CSV.");
+    } catch (csvErr) {
+      console.error("❌ Fallaron todos los métodos de descarga. Usando datos de respaldo:", csvErr);
+    }
   }
 
   // Asegurar la inyección de Fecha de Simulación 99 siempre que esté activo el modo de prueba,
