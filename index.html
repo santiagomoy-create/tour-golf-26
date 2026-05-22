@@ -657,33 +657,6 @@ async function cargarDesdeGoogleSheets() {
       }));
     }
 
-    // Inyección de Fecha de Simulación si el modo de prueba está activo
-    if (IS_TEST_MODE) {
-      if (!COURSES.some(c => c.id === "cnsi")) {
-        COURSES.push({
-          id: "cnsi",
-          name: "Club Náutico San Isidro",
-          city: "San Isidro",
-          par: [4,3,4,4,4,5,4,3,4,4,4,5,4,3,5,4,3,4],
-          hdi: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18],
-          slope: 113,
-          rating: 72,
-          web: "https://cnsi.org.ar",
-          map: "https://maps.google.com/?q=Club+Nautico+San+Isidro"
-        });
-      }
-      if (!SCHED.some(s => s.num === 99)) {
-        SCHED.push({
-          num: 99,
-          date: "Simulación en Vivo",
-          course: "cnsi",
-          status: "upcoming",
-          doble: false,
-          deadline: null
-        });
-      }
-    }
-
     // 4. Cargar Coordinación
     if (coordinationRaw && coordinationRaw.length) {
       COORDINATION = coordinationRaw.map(c => ({
@@ -747,6 +720,43 @@ async function cargarDesdeGoogleSheets() {
     console.log("✓ Base de datos Google Sheets cargada exitosamente.");
   } catch (e) {
     console.error("⚠️ Falló la conexión con Google Sheets. Usando datos estáticos de respaldo:", e);
+  }
+
+  // Asegurar la inyección de Fecha de Simulación 99 siempre que esté activo el modo de prueba,
+  // incluso si falló la descarga desde Google Sheets y estamos usando los datos locales de respaldo.
+  if (IS_TEST_MODE) {
+    if (!COURSES.some(c => c.id === "cnsi")) {
+      COURSES.push({
+        id: "cnsi",
+        name: "Club Náutico San Isidro",
+        city: "San Isidro",
+        par: [4,3,4,4,4,5,4,3,4,4,4,5,4,3,5,4,3,4],
+        hdi: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18],
+        slope: 113,
+        rating: 72,
+        web: "https://cnsi.org.ar",
+        map: "https://maps.google.com/?q=Club+Nautico+San+Isidro"
+      });
+    }
+    if (!SCHED.some(s => s.num === 99)) {
+      SCHED.push({
+        num: 99,
+        date: "Simulación en Vivo",
+        course: "cnsi",
+        status: "upcoming",
+        doble: false,
+        deadline: null
+      });
+    }
+    if (!FD[99]) {
+      FD[99] = {
+        fecha: 99,
+        course: "cnsi",
+        date: "Simulación en Vivo",
+        lineas: [],
+        scores: {}
+      };
+    }
   }
 }
 
@@ -1071,6 +1081,47 @@ function mono(v){return`<span style="font-family:'DM Mono',monospace">${v}</span
 let CUR='dashboard';
 function nav(p){
   CUR=p;
+  
+  // Inyección de seguridad ultra-robusta para Fecha de Simulación 99
+  if (IS_TEST_MODE) {
+    if (!COURSES.some(c => c.id === "cnsi")) {
+      COURSES.push({
+        id: "cnsi",
+        name: "Club Náutico San Isidro",
+        city: "San Isidro",
+        par: [4,3,4,4,4,5,4,3,4,4,4,5,4,3,5,4,3,4],
+        hdi: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18],
+        slope: 113,
+        rating: 72,
+        web: "https://cnsi.org.ar",
+        map: "https://maps.google.com/?q=Club+Nautico+San+Isidro"
+      });
+    }
+    if (!SCHED.some(s => s.num === 99)) {
+      SCHED.push({
+        num: 99,
+        date: "Simulación en Vivo",
+        course: "cnsi",
+        status: "upcoming",
+        doble: false,
+        deadline: null
+      });
+    }
+    if (!FD[99]) {
+      FD[99] = {
+        fecha: 99,
+        course: "cnsi",
+        date: "Simulación en Vivo",
+        lineas: [],
+        scores: {}
+      };
+    }
+  } else {
+    // Si no está activo el modo simulación, limpiar la fecha 99 para evitar fugas
+    SCHED = SCHED.filter(s => s.num !== 99);
+    if (FD[99]) delete FD[99];
+  }
+  
   updateNavUI();
   
   document.querySelectorAll('.sb .ni').forEach(el => {
@@ -2454,6 +2505,40 @@ function rLive(el) {
   const activeDates = SCHED.filter(s => s.status === 'upcoming' || s.status === 'played');
   if (IS_TEST_MODE) {
     liveDateNum = 99;
+    
+    // Inyección de seguridad ultra-robusta por si falló la carga desde Google Sheets o cache
+    if (!COURSES.some(c => c.id === "cnsi")) {
+      COURSES.push({
+        id: "cnsi",
+        name: "Club Náutico San Isidro",
+        city: "San Isidro",
+        par: [4,3,4,4,4,5,4,3,4,4,4,5,4,3,5,4,3,4],
+        hdi: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18],
+        slope: 113,
+        rating: 72,
+        web: "https://cnsi.org.ar",
+        map: "https://maps.google.com/?q=Club+Nautico+San+Isidro"
+      });
+    }
+    if (!SCHED.some(s => s.num === 99)) {
+      SCHED.push({
+        num: 99,
+        date: "Simulación en Vivo",
+        course: "cnsi",
+        status: "upcoming",
+        doble: false,
+        deadline: null
+      });
+    }
+    if (!FD[99]) {
+      FD[99] = {
+        fecha: 99,
+        course: "cnsi",
+        date: "Simulación en Vivo",
+        lineas: [],
+        scores: {}
+      };
+    }
   } else {
     if (liveDateNum === 99) {
       liveDateNum = null;
@@ -3374,11 +3459,30 @@ async function clearSimulationData() {
   }
 }
 
-// Registrar Service Worker para soporte offline
+// Registrar Service Worker para soporte offline con detección de actualizaciones críticas
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('✓ Service Worker registrado correctamente.', reg.scope))
+      .then(reg => {
+        console.log('✓ Service Worker registrado correctamente.', reg.scope);
+        
+        // Escuchar si hay una actualización disponible (para evitar caché pegajoso de PWA)
+        reg.addEventListener('updatefound', () => {
+          const installingWorker = reg.installing;
+          if (installingWorker) {
+            installingWorker.addEventListener('statechange', () => {
+              if (installingWorker.state === 'installed') {
+                if (navigator.serviceWorker.controller) {
+                  console.log('✨ Nueva versión disponible en segundo plano.');
+                  if (confirm("🔄 ¡Hay una nueva versión de la aplicación disponible con mejoras y correcciones importantes! ¿Querés recargar la página ahora para aplicarla?")) {
+                    window.location.reload();
+                  }
+                }
+              }
+            });
+          }
+        });
+      })
       .catch(err => console.warn('⚠️ Falló la registración del Service Worker.', err));
   });
 }
