@@ -439,6 +439,13 @@ tr:hover td{background:var(--gray0)}
   display: flex;
   flex-direction: column;
   gap: 6px;
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.spinning {
+  display: inline-block;
+  animation: spin 1s linear infinite;
 }
 </style>
 </head>
@@ -761,6 +768,13 @@ async function cargarDesdeGoogleSheets() {
     } catch (csvErr) {
       console.error("❌ Fallaron todos los métodos de descarga. Usando datos de respaldo:", csvErr);
     }
+  }
+
+  // Deducir automáticamente si el modo simulación está activo globalmente en Google Sheets
+  if (typeof SCHED !== 'undefined' && SCHED.length) {
+    const hasSimulationDate = SCHED.some(s => s.num === 99);
+    IS_TEST_MODE = hasSimulationDate;
+    storage.set('golf_test_mode', hasSimulationDate ? 'true' : 'false');
   }
 
   // Asegurar la inyección de Fecha de Simulación 99 siempre que esté activo el modo de prueba,
@@ -1272,7 +1286,15 @@ function rDash(el){
   const nextDateStr = nextDate ? formatDate(nextDate.date) : 'TBD';
 
   el.innerHTML=`
-  <div class="ph"><h1>Dashboard</h1><p>Torneo Golf 26 — Temporada 2026</p></div>
+  <div class="ph" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+    <div>
+      <h1>Dashboard</h1>
+      <p>Torneo Golf 26 — Temporada 2026</p>
+    </div>
+    <button class="btn btn-s" id="btn-global-refresh" onclick="syncDataLive()" style="display:inline-flex; align-items:center; gap:6px; font-weight:600; padding:8px 12px; border-radius:8px; border:1px solid var(--bdr); background:var(--surf); color:var(--tx);">
+      <span class="refresh-icon">🔄</span> Sincronizar
+    </button>
+  </div>
   <div class="mg">
     <div class="mc"><div class="ml">Fechas jugadas</div><div class="mv">${Object.keys(FD).length}<span style="font-size:16px;color:var(--txm)"> / 6</span></div><div class="ms">Próxima: ${nextDateStr}</div></div>
     <div class="mc"><div class="ml">Líder Stableford</div><div class="mv" style="font-size:18px">${lS?.p.short||'—'}</div><div class="ms">${lS?lS.stb+' pts acum.':''}</div></div>
@@ -1404,7 +1426,15 @@ function renderRT(mode){
 let AF=1;
 function rFechas(el){
   el.innerHTML=`
-  <div class="ph"><h1>Fechas del torneo</h1><p>Resultados y tarjetas por fecha</p></div>
+  <div class="ph" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+    <div>
+      <h1>Fechas del torneo</h1>
+      <p>Resultados y tarjetas por fecha</p>
+    </div>
+    <button class="btn btn-s" id="btn-global-refresh" onclick="syncDataLive()" style="display:inline-flex; align-items:center; gap:6px; font-weight:600; padding:8px 12px; border-radius:8px; border:1px solid var(--bdr); background:var(--surf); color:var(--tx);">
+      <span class="refresh-icon">🔄</span> Sincronizar
+    </button>
+  </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:24px">
     ${SCHED.map(s=>`<div class="fc-card ${AF===s.num?'af':''}" onclick="selF(${s.num})">
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--txm)">F${s.num}${s.doble?' ·2x':''}</div>
@@ -2649,7 +2679,7 @@ function openAdminSettingsModal() {
   }
 }
 
-function saveAdminSettings() {
+async function saveAdminSettings() {
   const url = document.getElementById('admin-url-input').value.trim();
   
   if (url !== "") {
@@ -2669,6 +2699,28 @@ function saveAdminSettings() {
   storage.set('golf_test_mode', testModeActive ? 'true' : 'false');
   
   closeMD();
+  
+  // Guardar configuración de simulación de forma global en Google Sheets
+  if (APPS_SCRIPT_URL) {
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          action: 'setSimulationMode',
+          pin: 'golf2026',
+          active: testModeActive
+        })
+      });
+      const data = await resp.json();
+      if (!data.success) {
+        console.warn("⚠️ Falló sincronización de simulación en Sheets:", data.error);
+      }
+    } catch (err) {
+      console.error("Connection error syncing simulation setting:", err);
+    }
+  }
+  
   alert("Configuración guardada correctamente.");
   cargarDesdeGoogleSheets().then(() => {
     nav('dashboard');
@@ -3641,7 +3693,98 @@ async function clearSimulationData() {
       btn.innerText = "Limpiar Datos de Simulación 🧹";
     }
   }
+async function syncDataLive() {
+  const btn = document.getElementById('btn-global-refresh');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="refresh-icon spinning">🔄</span> Sincronizando...`;
+    btn.style.opacity = '0.7';
+  }
+  
+  try {
+    await cargarDesdeGoogleSheets();
+    
+    // Refrescar la vista activa
+    if (CUR === 'dashboard') {
+      rDash(document.getElementById('MC'));
+    } else if (CUR === 'fechas') {
+      rFechas(document.getElementById('MC'));
+    } else if (CUR === 'coordinacion') {
+      rCoord(document.getElementById('MC'));
+    } else if (CUR === 'live') {
+      rLive(document.getElementById('MC'));
+    } else if (CUR === 'ranking') {
+      rRank(document.getElementById('MC'));
+    }
+    
+    if (btn) {
+      btn.innerHTML = `✅ Sincronizado`;
+      btn.style.background = '#f0fdf4';
+      btn.style.borderColor = '#10B981';
+      btn.style.color = '#10B981';
+      setTimeout(() => {
+        const freshBtn = document.getElementById('btn-global-refresh');
+        if (freshBtn) {
+          freshBtn.disabled = false;
+          freshBtn.style.opacity = '1';
+          freshBtn.style.background = 'var(--surf)';
+          freshBtn.style.borderColor = 'var(--bdr)';
+          freshBtn.style.color = 'var(--tx)';
+          freshBtn.innerHTML = `🔄 Sincronizar`;
+        }
+      }, 2000);
+    }
+  } catch (err) {
+    console.error("Manual sync failed:", err);
+    if (btn) {
+      btn.innerHTML = `❌ Falló`;
+      btn.style.background = '#fef2f2';
+      btn.style.borderColor = '#ef4444';
+      btn.style.color = '#ef4444';
+      setTimeout(() => {
+        const freshBtn = document.getElementById('btn-global-refresh');
+        if (freshBtn) {
+          freshBtn.disabled = false;
+          freshBtn.style.opacity = '1';
+          freshBtn.style.background = 'var(--surf)';
+          freshBtn.style.borderColor = 'var(--bdr)';
+          freshBtn.style.color = 'var(--tx)';
+          freshBtn.innerHTML = `🔄 Sincronizar`;
+        }
+      }, 2000);
+    }
+  }
 }
+
+let livePollingInterval = null;
+function startLivePolling() {
+  if (livePollingInterval) clearInterval(livePollingInterval);
+  
+  livePollingInterval = setInterval(async () => {
+    if (navigator.onLine && !document.hidden && APPS_SCRIPT_URL && (CUR === 'dashboard' || CUR === 'fechas' || CUR === 'live')) {
+      console.log("🔄 Auto-polling background sync...");
+      try {
+        await cargarDesdeGoogleSheets();
+        const activeInput = document.activeElement;
+        const isUserTyping = activeInput && (activeInput.tagName === 'INPUT' || activeInput.tagName === 'SELECT' || activeInput.tagName === 'TEXTAREA');
+        
+        if (!isUserTyping) {
+          if (CUR === 'dashboard') {
+            rDash(document.getElementById('MC'));
+          } else if (CUR === 'fechas') {
+            rFD(AF);
+          }
+        }
+      } catch (err) {
+        console.warn("Background auto-polling failed:", err);
+      }
+    }
+  }, 30000); // cada 30 segundos
+}
+
+window.addEventListener('load', () => {
+  startLivePolling();
+});
 
 // Registrar Service Worker para soporte offline con detección de actualizaciones críticas
 if ('serviceWorker' in navigator) {
