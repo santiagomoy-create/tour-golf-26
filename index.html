@@ -672,7 +672,7 @@ async function cargarDesdeGoogleSheets() {
         const lineas = flightsForDate.map(f => ({
           num: Number(f.flight_num),
           hora: f.tee_time,
-          pids: String(f.player_ids).split(",").map(Number)
+          pids: String(f.player_ids || '').split(",").map(Number).filter(x => !isNaN(x) && x > 0)
         }));
 
         const scores = {};
@@ -1675,9 +1675,9 @@ function rFT(mode,fn){
     }).join('')}`;
 
   } else if(mode==='lag'){
-    // Filtrar líneas fantasma: solo mostrar líneas que tengan al menos un jugador con score
     const lagRaw=getLaguneada(fn);
-    const lag=lagRaw.filter(l => l.pids.length > 0 && l.pids.some(pid => fd.scores[pid] && fd.scores[pid].holes));
+    // Solo filtrar líneas con pids completamente inválidos (NaN por player_ids vacíos en Sheets)
+    const lag=lagRaw.filter(l => l.pids.length > 0 && l.pids.some(pid => !isNaN(pid) && pid > 0));
     if(!lag.length){el.innerHTML=`<div class="alert ai">Sin líneas configuradas.</div>`;return;}
     const hW=c.par.map((_,h)=>{
       const vals=lag.map(l=>l.bph[h]);
