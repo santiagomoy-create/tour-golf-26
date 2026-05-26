@@ -537,6 +537,7 @@ let IS_TEST_MODE = storage.get('golf_test_mode') === 'true';
 let APPS_SCRIPT_URL = storage.get('golf_apps_script_url') || 'https://script.google.com/macros/s/AKfycbxDf7lRnkAAGsDA3sN8Y_RK_8JeeGy2O9bJtPXQgw0E5i3L75D8fYDB6QfTjG2_ZakdkA/exec';
 const SPREADSHEET_ID = "1h_R6k50cU3W9e8E-53nxmpmCHd771uTh2erYE5lw5pk"; // Ingresa el ID de tu Google Sheet publicado
 let COORDINATION = [];
+let INVITADOS_SUGERIDOS = [];
 
 // GIDs de cada hoja en tu Google Sheet (modificar si los de tu planilla varían)
 const GIDS = {
@@ -602,6 +603,7 @@ async function cargarDesdeGoogleSheets() {
     const flightsRaw = payload.flights || [];
     const scoresRaw = payload.scores || [];
     const coordinationRaw = payload.coordination || [];
+    const invitadosRaw = payload.invitados || [];
 
     // 1. Cargar Jugadores
     if (playersRaw && playersRaw.length) {
@@ -611,7 +613,8 @@ async function cargarDesdeGoogleSheets() {
         short: p.short_name,
         hcp: p.handicap !== "" && p.handicap !== null ? Number(p.handicap) : null,
         mat: String(p.matricula || ""),
-        ini: p.initials || String(p.short_name || "").substring(0, 2).toUpperCase()
+        ini: p.initials || String(p.short_name || "").substring(0, 2).toUpperCase(),
+        isInvitado: p.is_invitado === true || String(p.is_invitado || '').toUpperCase() === 'TRUE'
       }));
     }
 
@@ -662,6 +665,23 @@ async function cargarDesdeGoogleSheets() {
       COORDINATION = [];
     }
 
+    // 4b. Cargar Invitados Sugeridos
+    if (invitadosRaw && invitadosRaw.length) {
+      INVITADOS_SUGERIDOS = invitadosRaw.map(inv => ({
+        dateNum: Number(inv.date_num),
+        suggestedBy: Number(inv.suggested_by),
+        nombre: inv.nombre || '',
+        whatsapp: inv.whatsapp || '',
+        email: inv.email || '',
+        matricula: inv.matricula || '',
+        handicap: inv.handicap !== '' && inv.handicap !== null ? Number(inv.handicap) : null,
+        observaciones: inv.observaciones || '',
+        timestamp: inv.timestamp || ''
+      }));
+    } else {
+      INVITADOS_SUGERIDOS = [];
+    }
+
     // 5. Reconstruir FD (Resultados y scores por fecha)
     const nuevoFD = {};
     SCHED.forEach(s => {
@@ -677,7 +697,9 @@ async function cargarDesdeGoogleSheets() {
 
         const scores = {};
         scoresForDate.forEach(sc => {
-          scores[Number(sc.player_id)] = {
+          const pid = Number(sc.player_id);
+          const player = TP.find(p => p.id === pid);
+          scores[pid] = {
             hcp: Number(sc.handicap),
             holes: String(sc.holes).split(",").map(Number),
             h19: sc.h19 === true || String(sc.h19).toUpperCase() === "TRUE",
@@ -687,7 +709,9 @@ async function cargarDesdeGoogleSheets() {
             noCard: sc.no_card === true || String(sc.no_card).toUpperCase() === "TRUE",
             abandon: sc.abandon === true || String(sc.abandon).toUpperCase() === "TRUE",
             noShow: sc.no_show === true || String(sc.no_show).toUpperCase() === "TRUE",
-            is_official: sc.is_official === true || String(sc.is_official).toUpperCase() === "TRUE"
+            is_official: sc.is_official === true || String(sc.is_official).toUpperCase() === "TRUE",
+            isReplace: (player && player.isInvitado) || sc.is_replace === true || String(sc.is_replace || '').toUpperCase() === "TRUE",
+            name: sc.player_name || (player ? player.name : '')
           };
         });
 
@@ -1388,7 +1412,9 @@ function renderRT(mode){
   const all=getAccum();
   const keyMap={stb:'stb',medal:'medal',lag:'lag',mixed:'mixed'};
   const k=keyMap[mode];
-  const sorted=[...all].sort((a,b)=>b[k]-a[k]);
+  // En Laguneada mostrar a todos (incluidos invitados). En los demás, excluir invitados.
+  const filtered = mode === 'lag' ? all : all.filter(r => !r.p.isInvitado);
+  const sorted=[...filtered].sort((a,b)=>b[k]-a[k]);
   const descMap={
     stb:'Stableford: Eagle=4 · Birdie=3 · Par=2 · Bogey=1 · Doble+=0 — ventaja hoyo por hoyo. Se acumula el score STB real de cada fecha. El que más puntos sume en las 6 fechas gana.',
     medal:'Medal: puntos por posición en score neto (12-9-7-5-4-3-2-1, doble en fecha 6). Empates: se promedian los puntos.',
@@ -2215,11 +2241,13 @@ async function saveF(){
 // ════════════════════════════════════════════════════
 function rJug(el){
   const tf=Object.keys(FD).length;
+  const titulares = TP.filter(p => !p.isInvitado);
+  const invitados = TP.filter(p => p.isInvitado);
   el.innerHTML=`
-  <div class="ph"><h1>Plantel 2026</h1><p>12 jugadores titulares — reemplazantes no suman al ranking</p></div>
+  <div class="ph"><h1>Plantel 2026</h1><p>${titulares.length} jugadores titulares${invitados.length ? ` + ${invitados.length} invitado${invitados.length > 1 ? 's' : ''}` : ''} — invitados solo suman en Laguneada</p></div>
   <div class="card"><table>
     <thead><tr><th>#</th><th>Jugador</th><th>HCP índex</th><th>Matrícula AAG</th><th>Rondas</th><th>Hoyo 19</th><th>Estado</th></tr></thead>
-    <tbody>${TP.map((p,i)=>{
+    <tbody>${titulares.map((p,i)=>{
       const st=getPlayerStats(p.id);
       const cls=['l1b','l2b','bb','ba','bg','bp'][i%6];
       return`<tr>
@@ -2230,7 +2258,17 @@ function rJug(el){
         <td>${st.asist}/${tf}</td><td>${st.h19c}</td>
         <td><span class="bdg bg">Activo</span></td>
       </tr>`;
-    }).join('')}</tbody>
+    }).join('')}${invitados.length ? invitados.map((p,i)=>{
+      const st=getPlayerStats(p.id);
+      return`<tr style="opacity:0.75">
+        <td><div style="width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;background:var(--gray1);color:var(--gray6)">${p.ini}</div></td>
+        <td><strong>${p.name}</strong> <span class="bdg ba" style="font-size:9px;padding:1px 5px">Invitado</span></td>
+        <td style="font-family:'DM Mono',monospace">${p.hcp!=null?p.hcp:'<span class="bdg ba">TBD</span>'}</td>
+        <td style="font-size:12px;color:var(--txm)">${p.mat || '—'}</td>
+        <td>${st.asist}/${tf}</td><td>${st.h19c}</td>
+        <td><span class="bdg" style="background:var(--gray0);color:var(--gray6)">Invitado</span></td>
+      </tr>`;
+    }).join('') : ''}</tbody>
   </table></div>`;
 }
 
@@ -3259,33 +3297,12 @@ function rCoord(el) {
   `).join('');
   if (!confirmedListHtml) confirmedListHtml = `<p style="font-size:12px;color:var(--txm);font-style:italic;">Nadie ha confirmado todavía.</p>`;
 
-  let absentListHtml = absent.map(x => {
-    let repHtml = "";
-    if (x.ans.replacementName) {
-      repHtml = `
-        <div class="co-rep-card">
-          <div style="font-size:11px;font-weight:600;color:var(--a6)">💡 Reemplazo recomendado:</div>
-          <div style="font-size:12px;color:var(--tx)"><strong>${x.ans.replacementName}</strong> ${x.ans.replacementHcp ? `(HCP: ${x.ans.replacementHcp})` : ''}</div>
-          ${x.ans.replacementPhone ? `<div style="font-size:11px;color:var(--tx2)">📞 Tel: ${x.ans.replacementPhone}</div>` : ''}
-          ${IS_ADMIN ? `
-            <div style="display:flex;gap:6px;margin-top:4px;">
-              <button class="btn" style="padding:2px 8px;font-size:10px;" onclick="navigator.clipboard.writeText('${x.ans.replacementPhone}');alert('Teléfono copiado!')">📋 Copiar</button>
-              <a href="https://wa.me/${String(x.ans.replacementPhone).replace(/\D/g,'')}" target="_blank" class="btn" style="padding:2px 8px;font-size:10px;background:#25d366;color:white;border:none;text-decoration:none;display:inline-flex;align-items:center;">💬 WhatsApp</a>
-            </div>
-          ` : ''}
-        </div>
-      `;
-    }
-    return `
-      <div style="padding:8px;background:var(--bg);border:1px solid var(--bdr);border-radius:8px;margin-bottom:6px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-          <strong style="font-size:13px;color:var(--tx);">${x.p.name}</strong>
-          <span class="co-badge-state no">De baja</span>
-        </div>
-        ${repHtml}
-      </div>
-    `;
-  }).join('');
+  let absentListHtml = absent.map(x => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:var(--bg);border:1px solid var(--bdr);border-radius:8px;margin-bottom:6px;">
+      <strong style="font-size:13px;color:var(--tx);">${x.p.name}</strong>
+      <span class="co-badge-state no">De baja</span>
+    </div>
+  `).join('');
   if (!absentListHtml) absentListHtml = `<p style="font-size:12px;color:var(--txm);font-style:italic;">No hay bajas registradas.</p>`;
 
   let pendingListHtml = pending.map(p => `
@@ -3303,7 +3320,7 @@ function rCoord(el) {
   let formPanelHtml = "";
   if (!loggedPlayerId) {
     let playerSelectOptions = `<option value="" disabled selected>-- Seleccioná tu nombre --</option>`;
-    TP.forEach(p => {
+    TP.filter(p => !p.isInvitado).forEach(p => {
       playerSelectOptions += `<option value="${p.id}">${p.name}</option>`;
     });
     formPanelHtml = `
@@ -3400,32 +3417,54 @@ function rCoord(el) {
           </div>
         </div>
         
-        <!-- SECCIÓN REEMPLAZO -->
-        <div id="co-section-reemplazo" class="${activePlay === 'no' ? '' : 'hidden'}" style="margin-top:16px;border-top:1px solid var(--bdr);padding-top:16px;">
-          <h4 style="margin:0 0 6px 0;color:var(--tx);">💡 ¿Recomendás un Reemplazo?</h4>
-          <p style="font-size:11.5px;color:var(--txm);margin-bottom:12px;">Si conocés a alguien que pueda jugar en tu lugar, completá sus datos para que lo contacte el coordinador.</p>
-          
-          <div class="fg" style="margin-bottom:8px;">
-            <label class="fl" style="font-size:11px;">Nombre Completo</label>
-            <input type="text" class="fc" id="co-rep-name" placeholder="Ej: Carlos Gómez" value="${existingAnswer?.replacementName || ''}">
-          </div>
-          <div class="fg" style="margin-bottom:8px;">
-            <label class="fl" style="font-size:11px;">Teléfono de Contacto</label>
-            <input type="tel" class="fc" id="co-rep-phone" placeholder="Ej: 1155556666" value="${existingAnswer?.replacementPhone || ''}">
-          </div>
-          <div class="fr" style="gap:8px;">
-            <div class="fg" style="flex:1;">
-              <label class="fl" style="font-size:11px;">Matrícula AAG</label>
-              <input type="text" class="fc" id="co-rep-mat" placeholder="Opcional" value="${existingAnswer?.replacementMatricula || ''}">
-            </div>
-            <div class="fg" style="flex:1;">
-              <label class="fl" style="font-size:11px;">Hándicap</label>
-              <input type="number" class="fc" id="co-rep-hcp" placeholder="Opcional" value="${existingAnswer?.replacementHcp || ''}">
-            </div>
-          </div>
-        </div>
-        
         <button id="btn-submit-coordination" class="btn btn-p" style="width:100%;font-weight:600;padding:14px;margin-top:20px;" onclick="coSubmitResponse()">Enviar Coordinación 🚀</button>
+        
+        <!-- SECCIÓN INVITADOS (siempre visible) -->
+        <div style="margin-top:20px;border-top:1px solid var(--bdr);padding-top:16px;">
+          <h4 style="margin:0 0 6px 0;color:var(--tx);">👥 ¿Tenés un amigo para invitar?</h4>
+          <p style="font-size:11.5px;color:var(--txm);margin-bottom:12px;">Sugerí invitados para completar las líneas. Podés agregar más de uno.</p>
+          
+          <div id="co-invitados-list">
+            ${coRenderExistingInvitados(player?.id, selectedCoordDateNum)}
+          </div>
+          
+          <div id="co-new-invitado-form" class="hidden" style="background:var(--surf);border:1px solid var(--bdr);border-radius:10px;padding:12px;margin-top:10px;">
+            <div class="fg" style="margin-bottom:8px;">
+              <label class="fl" style="font-size:11px;">Nombre Completo *</label>
+              <input type="text" class="fc" id="co-inv-name" placeholder="Ej: Carlos Gómez">
+            </div>
+            <div class="fr" style="gap:8px;margin-bottom:8px;">
+              <div class="fg" style="flex:1;">
+                <label class="fl" style="font-size:11px;">WhatsApp</label>
+                <input type="tel" class="fc" id="co-inv-whatsapp" placeholder="Ej: 1155556666">
+              </div>
+              <div class="fg" style="flex:1;">
+                <label class="fl" style="font-size:11px;">Email</label>
+                <input type="email" class="fc" id="co-inv-email" placeholder="nombre@email.com">
+              </div>
+            </div>
+            <div class="fr" style="gap:8px;margin-bottom:8px;">
+              <div class="fg" style="flex:1;">
+                <label class="fl" style="font-size:11px;">Matrícula AAG</label>
+                <input type="text" class="fc" id="co-inv-mat" placeholder="Opcional">
+              </div>
+              <div class="fg" style="flex:1;">
+                <label class="fl" style="font-size:11px;">Hándicap</label>
+                <input type="number" class="fc" id="co-inv-hcp" placeholder="Opcional">
+              </div>
+            </div>
+            <div class="fg" style="margin-bottom:10px;">
+              <label class="fl" style="font-size:11px;">Observaciones</label>
+              <textarea class="fc" id="co-inv-obs" placeholder="Ej: Juega seguido en Hurlingham, puede cualquier día..." rows="2" style="resize:vertical;"></textarea>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-p" style="flex:1;padding:10px;font-weight:600;" onclick="coSaveInvitado()">✅ Guardar Invitado</button>
+              <button class="btn" style="padding:10px;" onclick="document.getElementById('co-new-invitado-form').classList.add('hidden')">Cancelar</button>
+            </div>
+          </div>
+          
+          <button class="btn" style="width:100%;margin-top:10px;padding:10px;border:1.5px dashed var(--bdr);background:none;color:var(--acc);font-weight:600;" onclick="document.getElementById('co-new-invitado-form').classList.remove('hidden')">+ Agregar Invitado</button>
+        </div>
       </div>
     `;
   }
@@ -3433,7 +3472,7 @@ function rCoord(el) {
   el.innerHTML = `
     <div class="ph">
       <h1>Coordinación de Fechas 🤝</h1>
-      <p>Confirmá tu asistencia, votá la cancha de la próxima fecha y recomendá reemplazos.</p>
+      <p>Confirmá tu asistencia, votá la cancha y sugerí invitados para la próxima fecha.</p>
     </div>
     
     <div class="card" style="margin-bottom: 20px;">
@@ -3462,6 +3501,11 @@ function rCoord(el) {
           </div>
         </div>
         ${votingStatsHtml}
+        ${IS_ADMIN ? `
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--bdr);">
+            <button class="btn btn-p" style="width:100%;padding:10px;font-weight:600;" onclick="coRenderLineBuilder()">🧮 Armar Líneas Balanceadas</button>
+          </div>
+        ` : ''}
       </div>
     </div>
     
@@ -3479,7 +3523,7 @@ function rCoord(el) {
         </div>
         
         <div style="margin-bottom:16px;">
-          <h4 style="margin:0 0 8px 0;font-size:13px;color:var(--r8);display:flex;align-items:center;gap:6px;">🔴 Ausentes y Reemplazos (${absent.length})</h4>
+          <h4 style="margin:0 0 8px 0;font-size:13px;color:var(--r8);display:flex;align-items:center;gap:6px;">🔴 Ausentes (${absent.length})</h4>
           <div style="max-height:220px;overflow-y:auto;">
             ${absentListHtml}
           </div>
@@ -3491,6 +3535,8 @@ function rCoord(el) {
             ${pendingListHtml}
           </div>
         </div>
+        
+        ${coRenderInvitadosSugeridosPanel(selectedCoordDateNum)}
       </div>
     </div>
   `;
@@ -3529,19 +3575,16 @@ function coLogoutPlayer() {
 
 function coSetPlaying(confirmed) {
   const secCancha = document.getElementById('co-section-cancha');
-  const secReemplazo = document.getElementById('co-section-reemplazo');
   const btnYes = document.getElementById('btn-play-yes');
   const btnNo = document.getElementById('btn-play-no');
   
   if (confirmed) {
     secCancha?.classList.remove('hidden');
-    secReemplazo?.classList.add('hidden');
     btnYes?.classList.add('btn-p');
     btnNo?.classList.remove('btn-p');
     btnNo?.removeAttribute('style');
   } else {
     secCancha?.classList.add('hidden');
-    secReemplazo?.classList.remove('hidden');
     btnYes?.classList.remove('btn-p');
     btnNo?.classList.add('btn-p');
     btnNo?.setAttribute('style', 'flex:1;padding:12px;font-weight:600;background:#dc2626;color:white;border:none;');
@@ -3619,20 +3662,12 @@ async function coSubmitResponse() {
   
   let votedCourseId = "";
   let customCourse = null;
-  let replacement = null;
   
   if (confirmed) {
     votedCourseId = document.getElementById('co-selected-course-id').value;
     if (votedCourseId === 'custom') {
       customCourse = customCourseProposed;
     }
-  } else {
-    replacement = {
-      name: document.getElementById('co-rep-name').value.trim(),
-      phone: document.getElementById('co-rep-phone').value.trim(),
-      matricula: document.getElementById('co-rep-mat').value.trim(),
-      hcp: document.getElementById('co-rep-hcp').value.trim() ? Number(document.getElementById('co-rep-hcp').value.trim()) : ""
-    };
   }
   
   if (btn) {
@@ -3651,8 +3686,7 @@ async function coSubmitResponse() {
         pinEntered,
         confirmed,
         votedCourseId,
-        customCourse,
-        replacement
+        customCourse
       })
     });
     
@@ -3674,6 +3708,456 @@ async function coSubmitResponse() {
       btn.disabled = false;
       btn.innerText = "Enviar Respuesta 🚀";
     }
+  }
+}
+
+// ════════════════════════════════════════════════════
+// INVITADOS — Funciones de renderizado y CRUD
+// ════════════════════════════════════════════════════
+
+function coRenderExistingInvitados(playerId, dateNum) {
+  if (!playerId) return '';
+  const mine = INVITADOS_SUGERIDOS.filter(inv => inv.suggestedBy === playerId && inv.dateNum === dateNum);
+  if (!mine.length) return '<p style="font-size:12px;color:var(--txm);font-style:italic;">No sugeriste invitados aún.</p>';
+  return mine.map(inv => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--surf);border:1px solid var(--bdr);border-radius:8px;margin-bottom:6px;">
+      <div>
+        <strong style="font-size:13px;color:var(--tx);">${inv.nombre}</strong>
+        ${inv.handicap != null ? `<span style="font-size:11px;color:var(--txm);margin-left:6px;">HCP ${inv.handicap}</span>` : ''}
+        ${inv.observaciones ? `<div style="font-size:11px;color:var(--tx2);margin-top:2px;">"${inv.observaciones}"</div>` : ''}
+      </div>
+      <button class="btn" style="padding:3px 8px;font-size:11px;color:var(--r8);border-color:var(--r8);" onclick="coDeleteInvitado('${inv.nombre.replace(/'/g,"\\'")}')">🗑</button>
+    </div>
+  `).join('');
+}
+
+function coRenderInvitadosSugeridosPanel(dateNum) {
+  const invForDate = INVITADOS_SUGERIDOS.filter(inv => inv.dateNum === dateNum);
+  if (!invForDate.length) return '';
+  
+  return `
+    <div style="margin-top:16px;">
+      <h4 style="margin:0 0 8px 0;font-size:13px;color:var(--acc);display:flex;align-items:center;gap:6px;">👥 Invitados Sugeridos (${invForDate.length})</h4>
+      <div style="max-height:300px;overflow-y:auto;">
+        ${invForDate.map(inv => {
+          const suggestedByPlayer = getPlayer(inv.suggestedBy);
+          return `
+            <div style="padding:8px 10px;background:var(--bg);border:1px solid var(--bdr);border-radius:8px;margin-bottom:6px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div>
+                  <strong style="font-size:13px;color:var(--tx);">${inv.nombre}</strong>
+                  ${inv.handicap != null ? `<span style="font-size:11px;color:var(--txm);margin-left:4px;">HCP ${inv.handicap}</span>` : ''}
+                </div>
+                <span class="bdg" style="background:var(--acc);color:white;font-size:10px;padding:2px 6px;">Invitado</span>
+              </div>
+              <div style="font-size:11px;color:var(--tx2);margin-top:4px;">
+                Sugerido por <strong>${suggestedByPlayer?.short || 'Jugador'}</strong>
+                ${inv.observaciones ? ` — "${inv.observaciones}"` : ''}
+              </div>
+              ${IS_ADMIN ? `
+                <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+                  ${inv.whatsapp ? `
+                    <a href="https://wa.me/${String(inv.whatsapp).replace(/\\D/g,'')}" target="_blank" class="btn" style="padding:2px 8px;font-size:10px;background:#25d366;color:white;border:none;text-decoration:none;display:inline-flex;align-items:center;">💬 WhatsApp</a>
+                    <button class="btn" style="padding:2px 8px;font-size:10px;" onclick="navigator.clipboard.writeText('${inv.whatsapp}');alert('📋 Copiado!')">📞 ${inv.whatsapp}</button>
+                  ` : ''}
+                  ${inv.email ? `<a href="mailto:${inv.email}" class="btn" style="padding:2px 8px;font-size:10px;text-decoration:none;">✉️ ${inv.email}</a>` : ''}
+                  ${inv.matricula ? `<span style="font-size:10px;color:var(--txm);">Mat: ${inv.matricula}</span>` : ''}
+                  <button class="btn btn-p" style="padding:3px 10px;font-size:10px;" onclick="coOpenRegisterInvitadoModal('${inv.nombre.replace(/'/g,"\\'")}', ${inv.handicap ?? 'null'}, '${(inv.matricula||'').replace(/'/g,"\\'")}', '${(inv.email||'').replace(/'/g,"\\'")}', '${(inv.whatsapp||'').replace(/'/g,"\\'")}')">✅ Registrar</button>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+async function coSaveInvitado() {
+  const nombre = document.getElementById('co-inv-name')?.value?.trim();
+  if (!nombre) { alert('El nombre del invitado es obligatorio.'); return; }
+  
+  const playerId = Number(storage.get('golf_player_id'));
+  const pinEntered = storage.get('golf_player_pin');
+  if (!playerId || !pinEntered) { alert('Debe autenticarse primero.'); return; }
+  
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'saveInvitadoSugerido',
+        dateNum: selectedCoordDateNum,
+        suggestedBy: playerId,
+        pinEntered,
+        nombre,
+        whatsapp: document.getElementById('co-inv-whatsapp')?.value?.trim() || '',
+        email: document.getElementById('co-inv-email')?.value?.trim() || '',
+        matricula: document.getElementById('co-inv-mat')?.value?.trim() || '',
+        handicap: document.getElementById('co-inv-hcp')?.value?.trim() || '',
+        observaciones: document.getElementById('co-inv-obs')?.value?.trim() || ''
+      })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      alert('✅ Invitado sugerido guardado.');
+      await cargarDesdeGoogleSheets();
+      rCoord(document.getElementById('MC'));
+    } else {
+      alert('❌ Error: ' + data.error);
+    }
+  } catch (err) {
+    alert('❌ Error al guardar invitado: ' + err.message);
+  }
+}
+
+async function coDeleteInvitado(nombre) {
+  if (!confirm(`¿Eliminar a "${nombre}" de tus invitados sugeridos?`)) return;
+  
+  const playerId = Number(storage.get('golf_player_id'));
+  const pinEntered = storage.get('golf_player_pin');
+  
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'deleteInvitadoSugerido',
+        dateNum: selectedCoordDateNum,
+        suggestedBy: playerId,
+        pinEntered,
+        nombre
+      })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      await cargarDesdeGoogleSheets();
+      rCoord(document.getElementById('MC'));
+    } else {
+      alert('❌ Error: ' + data.error);
+    }
+  } catch (err) {
+    alert('❌ Error: ' + err.message);
+  }
+}
+
+// ════════════════════════════════════════════════════
+// ARMADOR INTELIGENTE DE LÍNEAS (Admin)
+// ════════════════════════════════════════════════════
+
+function getPlayerGap(pid) {
+  // Calcula el GAP promedio: cuántos golpes por encima de su HCP jugó en promedio
+  const p = getPlayer(pid);
+  if (!p) return { gap: 999, fechas: 0, avgGross: 0, hcp: 0 };
+  
+  let totalGap = 0, fechas = 0;
+  Object.keys(FD).forEach(fn => {
+    const fd = FD[fn];
+    const sc = fd.scores[pid];
+    if (!sc || sc.noShow || sc.noCard || sc.abandon || !sc.holes) return;
+    const c = getCourse(fd.course);
+    if (!c) return;
+    const parTotal = c.par.reduce((a, b) => a + b, 0);
+    const g = sc.holes.reduce((a, b) => a + b, 0);
+    if (g <= 0) return;
+    totalGap += g - parTotal - sc.hcp;
+    fechas++;
+  });
+  
+  return {
+    gap: fechas > 0 ? Math.round(totalGap / fechas) : null,
+    fechas,
+    hcp: p.hcp,
+    name: p.short,
+    fullName: p.name,
+    isInvitado: p.isInvitado || false
+  };
+}
+
+function generateBalancedLines(confirmedPids, numLines = 3) {
+  // Separa titulares e invitados
+  const titulares = confirmedPids.filter(pid => {
+    const p = getPlayer(pid);
+    return p && !p.isInvitado;
+  });
+  const invitados = confirmedPids.filter(pid => {
+    const p = getPlayer(pid);
+    return p && p.isInvitado;
+  });
+  
+  // Ordenar por GAP (menor a mayor — los más consistentes primero)
+  const withGap = titulares.map(pid => ({ pid, ...getPlayerGap(pid) }));
+  withGap.sort((a, b) => (a.gap ?? 999) - (b.gap ?? 999));
+  
+  // Distribución serpentina
+  const lines = Array.from({ length: numLines }, (_, i) => ({ num: i + 1, pids: [], totalGap: 0 }));
+  
+  withGap.forEach((pg, idx) => {
+    // Serpentina: 0,1,2,2,1,0,0,1,2,...
+    const cycle = Math.floor(idx / numLines);
+    const posInCycle = idx % numLines;
+    const lineIdx = cycle % 2 === 0 ? posInCycle : (numLines - 1 - posInCycle);
+    lines[lineIdx].pids.push(pg.pid);
+    lines[lineIdx].totalGap += pg.gap ?? 0;
+  });
+  
+  // Distribuir invitados también serpentina
+  const invWithGap = invitados.map(pid => ({ pid, ...getPlayerGap(pid) }));
+  invWithGap.sort((a, b) => (a.gap ?? 999) - (b.gap ?? 999));
+  invWithGap.forEach((pg, idx) => {
+    // Asignar a la línea con menos jugadores, o la de mayor GAP (para balancear)
+    lines.sort((a, b) => a.pids.length - b.pids.length || a.totalGap - b.totalGap);
+    lines[0].pids.push(pg.pid);
+    lines[0].totalGap += pg.gap ?? 0;
+  });
+  
+  // Re-ordenar por número de línea
+  lines.sort((a, b) => a.num - b.num);
+  
+  return lines;
+}
+
+function coRenderLineBuilder() {
+  if (!IS_ADMIN) return;
+  
+  const dateNum = selectedCoordDateNum;
+  const answers = COORDINATION.filter(c => c.dateNum === dateNum);
+  const confirmedPids = answers.filter(a => a.confirmed).map(a => a.playerId);
+  
+  // Incluir invitados registrados para esta fecha
+  const registeredInvitados = TP.filter(p => p.isInvitado);
+  const allPids = [...confirmedPids];
+  registeredInvitados.forEach(p => {
+    if (!allPids.includes(p.id)) {
+      // Solo agregar si están en alguna salida de esta fecha
+      const fd = FD[dateNum];
+      if (fd && fd.lineas) {
+        fd.lineas.forEach(l => {
+          if (l.pids.includes(p.id) && !allPids.includes(p.id)) {
+            allPids.push(p.id);
+          }
+        });
+      }
+    }
+  });
+  
+  if (allPids.length < 2) {
+    document.getElementById('MOD').innerHTML = `
+      <div class="mo" onclick="closeM(event)">
+        <div class="md" style="max-width:500px;">
+          <div class="mh"><h3>🧮 Armador de Líneas</h3><button class="mc-btn" onclick="closeMD()">×</button></div>
+          <div class="mb"><p style="color:var(--txm);">Se necesitan al menos 2 jugadores confirmados para armar líneas.</p></div>
+          <div class="mf"><button class="btn" onclick="closeMD()">Cerrar</button></div>
+        </div>
+      </div>`;
+    return;
+  }
+  
+  const lines = generateBalancedLines(allPids);
+  
+  const gapData = allPids.map(pid => ({ pid, ...getPlayerGap(pid) }));
+  
+  document.getElementById('MOD').innerHTML = `
+    <div class="mo" onclick="closeM(event)">
+      <div class="md" style="max-width:650px;">
+        <div class="mh">
+          <h3>🧮 Armador Inteligente de Líneas — Fecha ${dateNum}</h3>
+          <button class="mc-btn" onclick="closeMD()">×</button>
+        </div>
+        <div class="mb">
+          <div class="alert ai" style="font-size:12px;margin-bottom:12px;">
+            Distribución serpentina por <strong>GAP de rendimiento</strong>. GAP = Gross Promedio − Par − HCP. Menor GAP = juega más consistente con su HCP.
+          </div>
+          
+          <h4 style="margin:0 0 8px 0;">📊 GAPs del Plantel</h4>
+          <table style="width:100%;margin-bottom:16px;font-size:12px;">
+            <thead><tr><th>Jugador</th><th>HCP</th><th>GAP</th><th>Fechas</th></tr></thead>
+            <tbody>
+              ${gapData.sort((a,b) => (a.gap ?? 999) - (b.gap ?? 999)).map(g => `
+                <tr${g.isInvitado ? ' style="opacity:0.7"' : ''}>
+                  <td>${g.fullName || g.name}${g.isInvitado ? ' <span class="bdg ba" style="font-size:9px;padding:1px 4px;">Inv</span>' : ''}</td>
+                  <td>${g.hcp ?? '—'}</td>
+                  <td style="font-family:'DM Mono',monospace;font-weight:600;color:${g.gap != null ? (g.gap <= 5 ? 'var(--g8)' : g.gap <= 15 ? 'var(--a6)' : 'var(--r8)') : 'var(--txm)'}">${g.gap != null ? (g.gap > 0 ? '+' + g.gap : g.gap) : 'S/D'}</td>
+                  <td>${g.fechas}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <h4 style="margin:0 0 12px 0;">⛳ Líneas Propuestas</h4>
+          <div style="display:grid;grid-template-columns:repeat(${lines.length},1fr);gap:10px;">
+            ${lines.map((line, li) => {
+              const avgGap = line.pids.length > 0 ? Math.round(line.totalGap / line.pids.length) : 0;
+              const cls = ['l1b', 'l2b', 'bb'][li] || 'ba';
+              return `
+                <div style="border:1px solid var(--bdr);border-radius:10px;overflow:hidden;">
+                  <div class="${cls}" style="padding:8px 10px;text-align:center;">
+                    <strong>Línea ${line.num}</strong>
+                    <div style="font-size:11px;opacity:0.8;">${line.pids.length} jugadores · GAP prom: ${avgGap > 0 ? '+' : ''}${avgGap}</div>
+                  </div>
+                  <div style="padding:8px;">
+                    ${line.pids.map(pid => {
+                      const pg = gapData.find(g => g.pid === pid);
+                      return `<div style="padding:4px 0;font-size:12px;display:flex;justify-content:space-between;border-bottom:1px solid var(--bdr);">
+                        <span>${pg?.fullName || pg?.name || 'ID:' + pid}${pg?.isInvitado ? ' <span class="bdg ba" style="font-size:8px;padding:0 3px;">Inv</span>' : ''}</span>
+                        <span style="font-family:'DM Mono',monospace;font-size:11px;color:${pg?.gap != null ? (pg.gap <= 5 ? 'var(--g8)' : pg.gap <= 15 ? 'var(--a6)' : 'var(--r8)') : 'var(--txm)'}">${pg?.gap != null ? (pg.gap > 0 ? '+' + pg.gap : pg.gap) : 'S/D'}</span>
+                      </div>`;
+                    }).join('')}
+                    ${line.pids.length === 0 ? '<p style="font-size:11px;color:var(--txm);text-align:center;">Sin jugadores</p>' : ''}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+          
+          <div style="margin-top:12px;">
+            <div class="fg" style="margin-bottom:8px;">
+              <label class="fl" style="font-size:11px;">Hora de salida Línea 1</label>
+              <input type="time" class="fc" id="lb-time-1" value="12:00">
+            </div>
+            <div class="fr" style="gap:8px;">
+              <div class="fg" style="flex:1;">
+                <label class="fl" style="font-size:11px;">Línea 2</label>
+                <input type="time" class="fc" id="lb-time-2" value="12:10">
+              </div>
+              <div class="fg" style="flex:1;">
+                <label class="fl" style="font-size:11px;">Línea 3</label>
+                <input type="time" class="fc" id="lb-time-3" value="12:20">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mf">
+          <button class="btn" onclick="closeMD()">Cancelar</button>
+          <button class="btn btn-p" onclick="coSaveGeneratedFlights(${dateNum}, ${JSON.stringify(lines.map(l => l.pids)).replace(/"/g, '&quot;')})">✅ Confirmar y Guardar Líneas</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function coSaveGeneratedFlights(dateNum, linesPids) {
+  const flights = linesPids.map((pids, i) => ({
+    flight_num: i + 1,
+    tee_time: document.getElementById(`lb-time-${i + 1}`)?.value || '',
+    player_ids_string: pids.join(',')
+  }));
+  
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'saveFlights',
+        dateNum,
+        pin: storage.get('golf_admin_pin') || 'golf2026',
+        flights
+      })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      alert('✅ Líneas guardadas correctamente.');
+      closeMD();
+      await cargarDesdeGoogleSheets();
+      rCoord(document.getElementById('MC'));
+    } else {
+      alert('❌ Error: ' + data.error);
+    }
+  } catch (err) {
+    alert('❌ Error al guardar: ' + err.message);
+  }
+}
+
+// ════════════════════════════════════════════════════
+// REGISTRAR INVITADO COMO JUGADOR (Admin)
+// ════════════════════════════════════════════════════
+
+function coOpenRegisterInvitadoModal(nombre, handicap, matricula, email, whatsapp) {
+  const dateNum = selectedCoordDateNum;
+  const fd = FD[dateNum];
+  const numLines = fd && fd.lineas ? fd.lineas.length : 3;
+  
+  let lineOptions = '';
+  for (let i = 1; i <= numLines; i++) {
+    const lineInfo = fd?.lineas?.find(l => l.num === i);
+    const playerCount = lineInfo ? lineInfo.pids.length : 0;
+    lineOptions += `<option value="${i}">Línea ${i} (${playerCount} jugadores)</option>`;
+  }
+  // Opción para nueva línea
+  lineOptions += `<option value="${numLines + 1}">Línea ${numLines + 1} (nueva)</option>`;
+  
+  document.getElementById('MOD').innerHTML = `
+    <div class="mo" onclick="closeM(event)">
+      <div class="md" style="max-width:420px;">
+        <div class="mh">
+          <h3>✅ Registrar Invitado — Fecha ${dateNum}</h3>
+          <button class="mc-btn" onclick="closeMD()">×</button>
+        </div>
+        <div class="mb">
+          <p style="font-size:12px;color:var(--txm);margin-bottom:12px;">El invitado será registrado como jugador en el sistema y asignado a la línea seleccionada. Podrá cargar su score desde "Anotar en Vivo".</p>
+          <div class="fg" style="margin-bottom:8px;">
+            <label class="fl" style="font-size:11px;">Nombre</label>
+            <input type="text" class="fc" id="reg-inv-nombre" value="${nombre || ''}">
+          </div>
+          <div class="fr" style="gap:8px;margin-bottom:8px;">
+            <div class="fg" style="flex:1;">
+              <label class="fl" style="font-size:11px;">Hándicap</label>
+              <input type="number" class="fc" id="reg-inv-hcp" value="${handicap ?? ''}">
+            </div>
+            <div class="fg" style="flex:1;">
+              <label class="fl" style="font-size:11px;">Matrícula AAG</label>
+              <input type="text" class="fc" id="reg-inv-mat" value="${matricula || ''}">
+            </div>
+          </div>
+          <div class="fg" style="margin-bottom:8px;">
+            <label class="fl" style="font-size:11px;">Asignar a línea</label>
+            <select class="fc" id="reg-inv-line">${lineOptions}</select>
+          </div>
+        </div>
+        <div class="mf">
+          <button class="btn" onclick="closeMD()">Cancelar</button>
+          <button class="btn btn-p" onclick="coRegisterInvitado('${(email||'').replace(/'/g,"\\'")}', '${(whatsapp||'').replace(/'/g,"\\'")}')">✅ Registrar Jugador</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function coRegisterInvitado(email, whatsapp) {
+  const nombre = document.getElementById('reg-inv-nombre')?.value?.trim();
+  const handicap = document.getElementById('reg-inv-hcp')?.value?.trim();
+  const matricula = document.getElementById('reg-inv-mat')?.value?.trim();
+  const flightNum = Number(document.getElementById('reg-inv-line')?.value);
+  
+  if (!nombre) { alert('El nombre es obligatorio.'); return; }
+  
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'registerInvitado',
+        pin: storage.get('golf_admin_pin') || 'golf2026',
+        nombre,
+        handicap: handicap ? Number(handicap) : null,
+        matricula: matricula || '',
+        email: email || '',
+        whatsapp: whatsapp || '',
+        dateNum: selectedCoordDateNum,
+        flightNum
+      })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      alert(`✅ ${nombre} registrado como jugador #${data.playerId}. Ya puede cargar su score desde "Anotar en Vivo".`);
+      closeMD();
+      await cargarDesdeGoogleSheets();
+      rCoord(document.getElementById('MC'));
+    } else {
+      alert('❌ Error: ' + data.error);
+    }
+  } catch (err) {
+    alert('❌ Error: ' + err.message);
   }
 }
 
