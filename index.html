@@ -862,12 +862,16 @@ let COURSES = [
   {id:'cnsi', name:'Club Náutico San Isidro', city:'San Isidro',
    par:[4,3,4,4,4,5,4,3,4,4,4,5,4,3,5,4,3,4],
    hdi:[3,15,17,9,5,1,7,13,11,14,6,10,12,2,8,4,18,16],
-   slope:113, rating:68.1}
+   slope:113, rating:68.1},
+  {id:'estancias', name:'Estancias Golf Club', city:'Pilar',
+   par:[4,4,4,4,3,5,3,4,4,4,4,3,4,5,3,5,4,5],
+   hdi:[13,9,5,11,15,3,17,7,1,2,16,18,14,6,12,10,4,8],
+   slope:128, rating:71.0}
 ];
 
 let SCHED = [
   {num:1,date:'08/05/2026',course:'cnsi',status:'played',doble:false},
-  {num:2,date:'05/06/2026',course:null, status:'upcoming',doble:false},
+  {num:2,date:'05/06/2026',course:'estancias', status:'upcoming',doble:false},
   {num:3,date:'03/07/2026',course:null, status:'pending', doble:false},
   {num:4,date:'07/08/2026',course:null, status:'pending', doble:false},
   {num:5,date:'Sep 2026',  course:null, status:'tbd',     doble:false},
@@ -3538,6 +3542,8 @@ function rCoord(el) {
         
         ${coRenderInvitadosSugeridosPanel(selectedCoordDateNum)}
       </div>
+      
+      ${IS_ADMIN ? coRenderLineAssignmentPanel(selectedCoordDateNum, confirmed) : ''}
     </div>
   `;
 }
@@ -3838,6 +3844,239 @@ async function coDeleteInvitado(nombre) {
     }
   } catch (err) {
     alert('❌ Error: ' + err.message);
+  }
+}
+
+// ════════════════════════════════════════════════════
+// ASIGNACIÓN INCREMENTAL DE LÍNEAS (Admin)
+// ════════════════════════════════════════════════════
+
+// State: { [dateNum]: { 1: [pid, ...], 2: [...], 3: [...], tee: {1:'12:00', 2:'12:10', 3:'12:50'} } }
+let lineAssignments = {};
+
+function coInitLineAssignments(dateNum) {
+  if (lineAssignments[dateNum]) return;
+  
+  // Cargar desde FD (salidas existentes) si hay
+  const fd = FD[dateNum];
+  const la = { 1: [], 2: [], 3: [], tee: { 1: '12:00', 2: '12:10', 3: '12:50' } };
+  
+  if (fd && fd.lineas && fd.lineas.length) {
+    fd.lineas.forEach(l => {
+      la[l.num] = [...(l.pids || [])];
+      if (l.hora) la.tee[l.num] = l.hora;
+    });
+  }
+  lineAssignments[dateNum] = la;
+}
+
+function coRecommendLine(pid, dateNum) {
+  const la = lineAssignments[dateNum];
+  if (!la) return 1;
+  
+  const pg = getPlayerGap(pid);
+  const playerGap = pg.gap ?? 0;
+  
+  // Calcular GAP total y cantidad de cada línea
+  const lineStats = [1, 2, 3].map(ln => {
+    const pids = la[ln];
+    let totalGap = 0;
+    pids.forEach(p => { totalGap += (getPlayerGap(p).gap ?? 0); });
+    return { ln, count: pids.length, totalGap, avgGap: pids.length > 0 ? totalGap / pids.length : 0 };
+  });
+  
+  // Priorizar: 1) línea con menos jugadores, 2) si empatan, la línea cuyo GAP promedio se beneficiaría más del balance
+  lineStats.sort((a, b) => {
+    if (a.count !== b.count) return a.count - b.count; // menos jugadores primero
+    // Entre empate de cantidad, la que tiene GAP más diferente al jugador (para balancear)
+    return a.totalGap - b.totalGap; // la de menor GAP total primero (si el jugador tiene GAP alto, balancea)
+  });
+  
+  return lineStats[0].ln;
+}
+
+function coRenderLineAssignmentPanel(dateNum, confirmedPlayers) {
+  coInitLineAssignments(dateNum);
+  const la = lineAssignments[dateNum];
+  
+  // IDs ya asignados a alguna línea
+  const assignedPids = new Set([...la[1], ...la[2], ...la[3]]);
+  
+  // Confirmados no asignados
+  const unassigned = confirmedPlayers.filter(p => !assignedPids.has(p.id));
+  
+  // Helper: render a player chip in a line
+  const renderAssigned = (pid, lineNum) => {
+    const pg = getPlayerGap(pid);
+    const p = getPlayer(pid);
+    const gapColor = pg.gap != null ? (pg.gap <= 5 ? 'var(--g8)' : pg.gap <= 15 ? 'var(--a6)' : 'var(--r8)') : 'var(--txm)';
+    const gapText = pg.gap != null ? (pg.gap > 0 ? '+' + pg.gap : '' + pg.gap) : 'S/D';
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:var(--bg);border:1px solid var(--bdr);border-radius:6px;margin-bottom:4px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:12px;font-weight:600;">${p?.short || 'ID:'+pid}</span>
+          <span style="font-size:10px;color:var(--txm);">HCP ${pg.hcp ?? '?'}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${gapColor};">${gapText}</span>
+          ${pg.isInvitado ? '<span class="bdg ba" style="font-size:8px;padding:0 3px;">Inv</span>' : ''}
+        </div>
+        <button class="btn" style="padding:1px 6px;font-size:10px;color:var(--r8);border-color:var(--r8);" onclick="coUnassignPlayer(${dateNum},${pid},${lineNum})">✕</button>
+      </div>
+    `;
+  };
+  
+  // Render each line column
+  const renderLine = (lineNum) => {
+    const pids = la[lineNum];
+    let totalGap = 0;
+    pids.forEach(pid => { totalGap += (getPlayerGap(pid).gap ?? 0); });
+    const avgGap = pids.length > 0 ? Math.round(totalGap / pids.length) : 0;
+    const cls = ['l1b', 'l2b', 'bb'][lineNum - 1] || 'ba';
+    
+    return `
+      <div style="border:1px solid var(--bdr);border-radius:10px;overflow:hidden;min-width:0;">
+        <div class="${cls}" style="padding:6px 8px;text-align:center;">
+          <strong style="font-size:12px;">L${lineNum}</strong>
+          <div style="font-size:10px;opacity:0.8;">${pids.length} jug · GAP: ${avgGap > 0 ? '+' : ''}${avgGap}</div>
+        </div>
+        <div style="padding:6px;">
+          ${pids.map(pid => renderAssigned(pid, lineNum)).join('')}
+          ${pids.length === 0 ? '<p style="font-size:10px;color:var(--txm);text-align:center;margin:4px 0;">Vacía</p>' : ''}
+        </div>
+      </div>
+    `;
+  };
+  
+  // Render unassigned players with recommendations
+  const renderUnassigned = () => {
+    if (!unassigned.length) return '<p style="font-size:11px;color:var(--txm);font-style:italic;">Todos los confirmados están asignados a una línea.</p>';
+    
+    return unassigned.map(p => {
+      const pg = getPlayerGap(p.id);
+      const rec = coRecommendLine(p.id, dateNum);
+      const gapColor = pg.gap != null ? (pg.gap <= 5 ? 'var(--g8)' : pg.gap <= 15 ? 'var(--a6)' : 'var(--r8)') : 'var(--txm)';
+      const gapText = pg.gap != null ? (pg.gap > 0 ? '+' + pg.gap : '' + pg.gap) : 'S/D';
+      
+      return `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:var(--bg);border:1px solid var(--bdr);border-radius:8px;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <strong style="font-size:12px;">${p.short || p.name}</strong>
+            <span style="font-size:10px;color:var(--txm);">HCP ${pg.hcp ?? '?'}</span>
+            <span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${gapColor};">${gapText}</span>
+          </div>
+          <div style="display:flex;gap:4px;">
+            ${[1,2,3].map(ln => `
+              <button class="btn${ln === rec ? ' btn-p' : ''}" style="padding:3px 10px;font-size:11px;font-weight:600;${ln === rec ? '' : ''}" onclick="coAssignPlayer(${dateNum},${p.id},${ln})">
+                L${ln}${ln === rec ? ' ★' : ''}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+  };
+  
+  const hasChanges = assignedPids.size > 0;
+  
+  return `
+    <div class="card" style="margin-top:20px;">
+      <h3 style="margin-top:0;display:flex;align-items:center;gap:8px;">⛳ Armado de Líneas
+        <span style="font-size:11px;font-weight:400;color:var(--txm);">Fecha ${dateNum}</span>
+      </h3>
+      
+      <div class="alert ai" style="font-size:11px;margin-bottom:12px;">
+        Asigná jugadores confirmados a las 3 líneas reservadas. La ★ indica la línea recomendada según balance de GAP. <strong>GAP = Gross − Par − HCP</strong> (menor = más consistente).
+      </div>
+      
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
+        ${renderLine(1)}
+        ${renderLine(2)}
+        ${renderLine(3)}
+      </div>
+      
+      <div style="margin-bottom:12px;">
+        <h4 style="margin:0 0 8px 0;font-size:13px;color:var(--a6);">🏌️ Sin Asignar (${unassigned.length})</h4>
+        ${renderUnassigned()}
+      </div>
+      
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div style="flex:1;display:flex;gap:8px;">
+          <div class="fg" style="flex:1;">
+            <label class="fl" style="font-size:10px;">L1</label>
+            <input type="time" class="fc" id="la-time-1" value="${la.tee[1]}" style="font-size:12px;padding:6px;" onchange="lineAssignments[${dateNum}].tee[1]=this.value">
+          </div>
+          <div class="fg" style="flex:1;">
+            <label class="fl" style="font-size:10px;">L2</label>
+            <input type="time" class="fc" id="la-time-2" value="${la.tee[2]}" style="font-size:12px;padding:6px;" onchange="lineAssignments[${dateNum}].tee[2]=this.value">
+          </div>
+          <div class="fg" style="flex:1;">
+            <label class="fl" style="font-size:10px;">L3</label>
+            <input type="time" class="fc" id="la-time-3" value="${la.tee[3]}" style="font-size:12px;padding:6px;" onchange="lineAssignments[${dateNum}].tee[3]=this.value">
+          </div>
+        </div>
+        <button class="btn btn-p" style="padding:8px 16px;font-weight:600;white-space:nowrap;" onclick="coSaveLineAssignments(${dateNum})" ${!hasChanges ? 'disabled' : ''}>
+          💾 Guardar Líneas
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function coAssignPlayer(dateNum, pid, lineNum) {
+  coInitLineAssignments(dateNum);
+  const la = lineAssignments[dateNum];
+  // Quitar de cualquier línea si ya estaba
+  [1, 2, 3].forEach(ln => {
+    la[ln] = la[ln].filter(p => p !== pid);
+  });
+  // Agregar a la línea elegida
+  la[lineNum].push(pid);
+  rCoord(document.getElementById('MC'));
+}
+
+function coUnassignPlayer(dateNum, pid, lineNum) {
+  coInitLineAssignments(dateNum);
+  const la = lineAssignments[dateNum];
+  la[lineNum] = la[lineNum].filter(p => p !== pid);
+  rCoord(document.getElementById('MC'));
+}
+
+async function coSaveLineAssignments(dateNum) {
+  const la = lineAssignments[dateNum];
+  if (!la) return;
+  
+  const flights = [1, 2, 3].map(ln => ({
+    flight_num: ln,
+    tee_time: la.tee[ln] || '',
+    player_ids_string: la[ln].join(',')
+  })).filter(f => f.player_ids_string); // Solo guardar líneas con jugadores
+  
+  if (!flights.length) {
+    alert('No hay jugadores asignados a ninguna línea.');
+    return;
+  }
+  
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'saveFlights',
+        dateNum,
+        pin: storage.get('golf_admin_pin') || 'golf2026',
+        flights
+      })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      alert('✅ Líneas guardadas correctamente.');
+      await cargarDesdeGoogleSheets();
+      lineAssignments[dateNum] = null; // Reset para que recargue desde FD
+      rCoord(document.getElementById('MC'));
+    } else {
+      alert('❌ Error: ' + data.error);
+    }
+  } catch (err) {
+    alert('❌ Error al guardar: ' + err.message);
   }
 }
 
