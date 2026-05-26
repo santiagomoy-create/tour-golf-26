@@ -3899,11 +3899,14 @@ function coRenderLineAssignmentPanel(dateNum, confirmedPlayers) {
   coInitLineAssignments(dateNum);
   const la = lineAssignments[dateNum];
   
+  // confirmedPlayers viene como [{p, ans}, ...] — extraer solo los player objects
+  const players = confirmedPlayers.map(cp => cp.p || cp);
+  
   // IDs ya asignados a alguna línea
   const assignedPids = new Set([...la[1], ...la[2], ...la[3]]);
   
   // Confirmados no asignados
-  const unassigned = confirmedPlayers.filter(p => !assignedPids.has(p.id));
+  const unassigned = players.filter(p => !assignedPids.has(p.id));
   
   // Helper: render a player chip in a line
   const renderAssigned = (pid, lineNum) => {
