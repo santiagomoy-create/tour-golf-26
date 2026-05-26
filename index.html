@@ -1061,7 +1061,8 @@ function getLaguneada(fn){
     
     // Si no jugaron ningún hoyo, su vs Par es 0
     const vs = completedHolesCount > 0 ? (tot - parOfCompleted) : 0;
-    const isLive = l.pids.some(pid => fd.scores[pid] && !fd.scores[pid].is_official);
+    // Una línea está "en vivo" solo si tiene al menos un hoyo completado pero no terminó los 18
+    const isLive = completedHolesCount > 0 && completedHolesCount < 18;
 
     return{
       ...l,
@@ -1156,6 +1157,22 @@ function formatDate(dateStr) {
     }
   }
   return dateStr;
+}
+function formatTeeTime(hora) {
+  if (!hora) return '';
+  const s = String(hora);
+  // Google Sheets serializa horarios como ISO timestamps con fecha base 1899-12-30.
+  // Ejemplo: '1899-12-30T16:16:48.000Z' → extraemos solo HH:MM
+  if (s.includes('T')) {
+    try {
+      const d = new Date(s);
+      if (!isNaN(d.getTime())) {
+        return String(d.getUTCHours()).padStart(2,'0') + ':' + String(d.getUTCMinutes()).padStart(2,'0');
+      }
+    } catch(e) {}
+  }
+  // Si ya es formato 'HH:MM' o texto limpio, devolver tal cual
+  return s;
 }
 function getLivePlayerHoleStatus(sc) {
   if (!sc || !sc.holes) return "Sin empezar";
@@ -1658,7 +1675,9 @@ function rFT(mode,fn){
     }).join('')}`;
 
   } else if(mode==='lag'){
-    const lag=getLaguneada(fn);
+    // Filtrar líneas fantasma: solo mostrar líneas que tengan al menos un jugador con score
+    const lagRaw=getLaguneada(fn);
+    const lag=lagRaw.filter(l => l.pids.length > 0 && l.pids.some(pid => fd.scores[pid] && fd.scores[pid].holes));
     if(!lag.length){el.innerHTML=`<div class="alert ai">Sin líneas configuradas.</div>`;return;}
     const hW=c.par.map((_,h)=>{
       const vals=lag.map(l=>l.bph[h]);
@@ -1671,7 +1690,7 @@ function rFT(mode,fn){
     <div class="mg" style="margin-bottom:16px">
       ${lag.map((l,i)=>{
         const names=l.pids.map(id=>getPlayer(id)?.short||'?').join(', ');
-        const isLive = l.completedHolesCount < 18;
+        const isLive = l.isLive;
         const mainScore = isLive ? (l.vs === 0 ? 'E' : (l.vs > 0 ? '+' + l.vs : l.vs)) : l.tot;
         const subText = isLive 
           ? `vs Par · Neto: ${l.tot} en ${l.completedHolesCount} hoyos` 
@@ -1679,10 +1698,11 @@ function rFT(mode,fn){
         const badgeLive = isLive 
           ? `<span class="bdg bg pulse-live" style="background:#10B981; color:#fff; font-size:9px; padding:2px 6px; border-radius:4px; margin-left: 6px;">• En Vivo — Hoyo ${l.completedHolesCount}</span>` 
           : '';
+        const horaDisplay = formatTeeTime(l.hora);
 
         return`<div class="mc" style="${isLive ? 'border: 1.5px solid #10B981; background:#f0fdf4;' : ''}">
           <div class="ml" style="display:flex; align-items:center; justify-content:space-between;">
-            <span>${mdl[i] || pb(i+1)} Línea ${l.num} — ${l.hora}</span>
+            <span>${mdl[i] || pb(i+1)} Línea ${l.num}${horaDisplay ? ' — ' + horaDisplay : ''}</span>
             ${badgeLive}
           </div>
           <div class="mv" style="font-size:24px; font-weight:700; color: ${isLive ? '#10B981' : 'var(--tx)'}">${mainScore}</div>
