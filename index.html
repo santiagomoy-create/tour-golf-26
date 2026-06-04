@@ -845,7 +845,8 @@ async function cargarDesdeGoogleSheets() {
             noShow: sc.no_show === true || String(sc.no_show).toUpperCase() === "TRUE",
             is_official: sc.is_official === true || String(sc.is_official).toUpperCase() === "TRUE",
             isReplace: (player && player.isInvitado) || sc.is_replace === true || String(sc.is_replace || '').toUpperCase() === "TRUE",
-            name: sc.player_name || (player ? player.name : '')
+            name: sc.player_name || (player ? player.name : ''),
+            putts: sc.putts ? String(sc.putts).split(",").map(Number) : null
           };
         });
 
@@ -1081,6 +1082,14 @@ function neto(h,hcp){return gross(h)-hcp;}
 function getCourse(id){return COURSES.find(c=>c.id===id)||COURSES[0];}
 function getPlayer(id){
   let p = TP.find(p=>p.id==id);
+  if (p) return p;
+  // Fallback: try matching by rounding (fixes IDs like 100.101 from Sheets formatting)
+  if (typeof id === 'number' && !Number.isInteger(id)) {
+    p = TP.find(p=>p.id===Math.round(id));
+    if (p) return p;
+  }
+  // Fallback: try matching as string
+  p = TP.find(p=> String(p.id) === String(id));
   if (p) return p;
   if (typeof liveDateNum !== 'undefined' && FD[liveDateNum] && FD[liveDateNum].scores && FD[liveDateNum].scores[id]) {
     const sc = FD[liveDateNum].scores[id];
@@ -2937,6 +2946,7 @@ let liveHole = 1;
 let livePlayerId = null;
 let liveDateNum = null;
 let liveHoles = new Array(18).fill(0);
+let livePutts = new Array(18).fill(0);
 let syncStatus = 'idle';
 let liveSyncTimeout = null;
 
@@ -3082,6 +3092,7 @@ function onLivePlayerChange(pid) {
     
     livePlayerId = newPid;
     liveHoles = new Array(18).fill(0);
+    livePutts = new Array(18).fill(0);
     rLive(document.getElementById('MC'));
     return;
   }
@@ -3091,8 +3102,10 @@ function onLivePlayerChange(pid) {
   if (fd && fd.scores && fd.scores[livePlayerId]) {
     const sc = fd.scores[livePlayerId];
     liveHoles = [...sc.holes];
+    livePutts = sc.putts ? [...sc.putts] : new Array(18).fill(0);
   } else {
     liveHoles = new Array(18).fill(0);
+    livePutts = new Array(18).fill(0);
   }
   renderLiveHolesPager();
 }
@@ -3102,6 +3115,7 @@ function onLiveDateChange(dnum) {
   liveDateNum = parseInt(dnum);
   livePlayerId = null;
   liveHoles = new Array(18).fill(0);
+  livePutts = new Array(18).fill(0);
   rLive(document.getElementById('MC'));
 }
 
@@ -3181,6 +3195,7 @@ function renderLiveHolesPager() {
   const curPar = c.par[liveHole - 1];
   const curHdi = c.hdi[liveHole - 1];
   const curScore = liveHoles[liveHole - 1];
+  const curPutt = livePutts[liveHole - 1];
   const displayScore = curScore > 0 ? curScore : '-';
 
   const playedHolesCount = liveHoles.filter(x => x > 0).length;
@@ -3230,6 +3245,16 @@ function renderLiveHolesPager() {
         ${curScore > 0 ? `<button class="btn btn-s btn-d" onclick="setLiveScoreVal(0)">Borrar</button>` : ''}
       </div>
 
+      <div style="border-top:1px solid var(--bdr); margin-top:16px; padding-top:12px;">
+        <div style="display:flex; align-items:center; justify-content:center; gap:12px;">
+          <span style="font-size:12px; color:var(--txm); font-weight:500; text-transform:uppercase; letter-spacing:0.05em;">Putts</span>
+          <button class="btn" style="width:36px; height:36px; border-radius:50%; font-size:18px; font-weight:600; display:flex; align-items:center; justify-content:center; border-color:var(--bdr2);" onclick="adjustLivePutt(-1)">−</button>
+          <div style="font-size:28px; font-weight:600; font-family:'DM Mono',monospace; width:40px; text-align:center; color:${curPutt > 0 ? 'var(--tx)' : 'var(--txm)'};">${curPutt > 0 ? curPutt : '-'}</div>
+          <button class="btn" style="width:36px; height:36px; border-radius:50%; font-size:18px; font-weight:600; display:flex; align-items:center; justify-content:center; border-color:var(--bdr2);" onclick="adjustLivePutt(1)">+</button>
+          ${curPutt > 0 ? `<button class="btn" style="padding:2px 8px; font-size:10px; color:var(--r8); border-color:var(--r8);" onclick="setLivePuttVal(0)">×</button>` : ''}
+        </div>
+      </div>
+
       <div style="border-top: 1px solid var(--bdr); margin-top:20px; padding-top:12px; display:flex; justify-content:space-between; align-items:center; font-size:12px;">
         <div style="color:${syncStatusColor}; font-weight:500;">
           <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${syncStatusColor}; margin-right:4px;"></span>
@@ -3243,7 +3268,7 @@ function renderLiveHolesPager() {
 
     <div class="card" style="margin-bottom:20px;">
       <div class="ct">Tu Score Parcial (HCP ${hcp})</div>
-      <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; text-align:center;">
+      <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:12px; text-align:center;">
         <div style="background:var(--bg); padding:10px; border-radius:8px;">
           <div style="font-size:11px; color:var(--txm); text-transform:uppercase;">Gross Acum.</div>
           <div style="font-size:20px; font-weight:600; font-family:'DM Mono',monospace; margin-top:4px;">${liveGross}</div>
@@ -3256,6 +3281,11 @@ function renderLiveHolesPager() {
         <div style="background:var(--bg); padding:10px; border-radius:8px; border:1px solid var(--g2)">
           <div style="font-size:11px; color:var(--g8); text-transform:uppercase; font-weight:600;">Puntos STB</div>
           <div style="font-size:20px; font-weight:700; font-family:'DM Mono',monospace; color:var(--g8); margin-top:4px;">${liveStb}</div>
+        </div>
+        <div style="background:var(--bg); padding:10px; border-radius:8px;">
+          <div style="font-size:11px; color:var(--txm); text-transform:uppercase;">Total Putts</div>
+          <div style="font-size:20px; font-weight:600; font-family:'DM Mono',monospace; margin-top:4px;">${livePutts.reduce((a,b)=>a+b,0) || '-'}</div>
+          <div style="font-size:10px; color:var(--tx2); margin-top:2px;">Prom: ${playedHolesCount > 0 ? (livePutts.reduce((a,b)=>a+b,0)/playedHolesCount).toFixed(1) : '-'}</div>
         </div>
       </div>
     </div>
@@ -3290,6 +3320,23 @@ function adjustLiveScore(diff) {
 
 function setLiveScoreVal(val) {
   liveHoles[liveHole - 1] = val;
+  if (val === 0) livePutts[liveHole - 1] = 0; // Reset putts if score cleared
+  renderLiveHolesPager();
+  triggerLiveSync();
+}
+
+function adjustLivePutt(diff) {
+  let cur = livePutts[liveHole - 1] || 0;
+  cur += diff;
+  if (cur < 0) cur = 0;
+  if (cur > 10) cur = 10;
+  livePutts[liveHole - 1] = cur;
+  renderLiveHolesPager();
+  triggerLiveSync();
+}
+
+function setLivePuttVal(val) {
+  livePutts[liveHole - 1] = val;
   renderLiveHolesPager();
   triggerLiveSync();
 }
@@ -3302,6 +3349,7 @@ function triggerLiveSync() {
       fd.scores[livePlayerId] = {
         hcp: p?.hcp || 0,
         holes: [...liveHoles],
+        putts: [...livePutts],
         h19: false, approach: false, hoyoEnUno: false, noApp: false, noCard: false, abandon: false, noShow: false,
         name: p?.name || 'Jugador En Vivo',
         isReplace: p?.isReplace || false,
@@ -3309,6 +3357,7 @@ function triggerLiveSync() {
       };
     } else {
       fd.scores[livePlayerId].holes = [...liveHoles];
+      fd.scores[livePlayerId].putts = [...livePutts];
       fd.scores[livePlayerId].is_official = false;
     }
   }
@@ -3334,7 +3383,8 @@ function triggerLiveSync() {
           dateNum: liveDateNum,
           playerId: livePlayerId,
           handicap: p?.hcp || 0,
-          holes: liveHoles
+          holes: liveHoles,
+          putts: livePutts
         })
       });
       const data = await resp.json();
@@ -4171,9 +4221,6 @@ function coRenderStep5ReadOnly(dateNum) {
   
   const renderLineCol = (lineNum) => {
     const pids = la[lineNum];
-    let totalGap = 0;
-    pids.forEach(pid => { totalGap += (getPlayerGap(pid).gap ?? 0); });
-    const avgGap = pids.length > 0 ? Math.round(totalGap / pids.length) : 0;
     const cls = ['l1b', 'l2b', 'bb'][lineNum - 1] || 'ba';
     
     return `
@@ -4185,12 +4232,10 @@ function coRenderStep5ReadOnly(dateNum) {
         <div style="padding:10px;">
           ${pids.map(pid => {
             const p = getPlayer(pid);
-            const pg = getPlayerGap(pid);
-            const gapText = pg.gap != null ? (pg.gap > 0 ? '+' + pg.gap : '' + pg.gap) : 'S/D';
             return `
               <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:var(--bg);border:1px solid var(--bdr);border-radius:6px;margin-bottom:6px;">
-                <strong style="font-size:12px;color:var(--tx);">${p?.name || 'ID:'+pid}</strong>
-                <span style="font-size:10px;color:var(--txm);font-family:'DM Mono',monospace;">HCP ${pg.hcp ?? '?'} (GAP ${gapText})</span>
+                <strong style="font-size:12px;color:var(--tx);">${p?.name || p?.short || 'Jugador '+pid}</strong>
+                <span style="font-size:10px;color:var(--txm);font-family:'DM Mono',monospace;">HCP ${p?.hcp ?? '?'}</span>
               </div>
             `;
           }).join('')}
@@ -4471,25 +4516,42 @@ function coRecommendLine(pid, dateNum) {
   const la = lineAssignments[dateNum];
   if (!la) return 1;
   
-  const pg = getPlayerGap(pid);
-  const playerGap = pg.gap ?? 0;
+  // Get which line(s) this player was on in previous dates
+  const prevLines = getPlayerPreviousLines(pid, dateNum);
+  const lastLine = prevLines.length > 0 ? prevLines[prevLines.length - 1] : 0;
   
-  // Calcular GAP total y cantidad de cada línea
-  const lineStats = [1, 2, 3].map(ln => {
-    const pids = la[ln];
-    let totalGap = 0;
-    pids.forEach(p => { totalGap += (getPlayerGap(p).gap ?? 0); });
-    return { ln, count: pids.length, totalGap, avgGap: pids.length > 0 ? totalGap / pids.length : 0 };
-  });
+  // Build line stats: count of players per line
+  const lineStats = [1, 2, 3].map(ln => ({
+    ln,
+    count: la[ln].length,
+    wasLastDate: ln === lastLine
+  }));
   
-  // Priorizar: 1) línea con menos jugadores, 2) si empatan, la línea cuyo GAP promedio se beneficiaría más del balance
+  // Prioritize: 1) NOT the same line as last date, 2) fewer players
   lineStats.sort((a, b) => {
-    if (a.count !== b.count) return a.count - b.count; // menos jugadores primero
-    // Entre empate de cantidad, la que tiene GAP más diferente al jugador (para balancear)
-    return a.totalGap - b.totalGap; // la de menor GAP total primero (si el jugador tiene GAP alto, balancea)
+    if (a.wasLastDate !== b.wasLastDate) return a.wasLastDate ? 1 : -1;
+    return a.count - b.count;
   });
   
   return lineStats[0].ln;
+}
+
+// Returns array of line numbers this player was on in past dates (chronological)
+function getPlayerPreviousLines(pid, beforeDateNum) {
+  const lines = [];
+  const pastDates = Object.keys(FD).map(Number).filter(n => n < beforeDateNum && n !== 99).sort((a, b) => a - b);
+  
+  pastDates.forEach(dn => {
+    const fd = FD[dn];
+    if (!fd || !fd.lineas) return;
+    fd.lineas.forEach(l => {
+      if (l.pids && l.pids.includes(pid)) {
+        lines.push(l.num);
+      }
+    });
+  });
+  
+  return lines;
 }
 
 function coRenderLineAssignmentPanel(dateNum, confirmedPlayers) {
@@ -4507,17 +4569,17 @@ function coRenderLineAssignmentPanel(dateNum, confirmedPlayers) {
   
   // Helper: render a player chip in a line
   const renderAssigned = (pid, lineNum) => {
-    const pg = getPlayerGap(pid);
     const p = getPlayer(pid);
-    const gapColor = pg.gap != null ? (pg.gap <= 5 ? 'var(--g8)' : pg.gap <= 15 ? 'var(--a6)' : 'var(--r8)') : 'var(--txm)';
-    const gapText = pg.gap != null ? (pg.gap > 0 ? '+' + pg.gap : '' + pg.gap) : 'S/D';
+    const prevLines = getPlayerPreviousLines(pid, dateNum);
+    const lastLine = prevLines.length > 0 ? prevLines[prevLines.length - 1] : null;
+    const prevInfo = lastLine ? `Ant: L${lastLine}` : 'Sin ant.';
     return `
       <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:var(--bg);border:1px solid var(--bdr);border-radius:6px;margin-bottom:4px;">
         <div style="display:flex;align-items:center;gap:6px;">
-          <span style="font-size:12px;font-weight:600;">${p?.short || 'ID:'+pid}</span>
-          <span style="font-size:10px;color:var(--txm);">HCP ${pg.hcp ?? '?'}</span>
-          <span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${gapColor};">${gapText}</span>
-          ${pg.isInvitado ? '<span class="bdg ba" style="font-size:8px;padding:0 3px;">Inv</span>' : ''}
+          <span style="font-size:12px;font-weight:600;">${p?.short || p?.name || 'Jugador '+pid}</span>
+          <span style="font-size:10px;color:var(--txm);">HCP ${p?.hcp ?? '?'}</span>
+          <span style="font-size:9px;color:${lastLine && lastLine === lineNum ? 'var(--r8)' : 'var(--g8)'};font-style:italic;">${prevInfo}</span>
+          ${p?.isInvitado ? '<span class="bdg ba" style="font-size:8px;padding:0 3px;">Inv</span>' : ''}
         </div>
         <button class="btn" style="padding:1px 6px;font-size:10px;color:var(--r8);border-color:var(--r8);" onclick="coUnassignPlayer(${dateNum},${pid},${lineNum})">✕</button>
       </div>
@@ -4527,16 +4589,13 @@ function coRenderLineAssignmentPanel(dateNum, confirmedPlayers) {
   // Render each line column
   const renderLine = (lineNum) => {
     const pids = la[lineNum];
-    let totalGap = 0;
-    pids.forEach(pid => { totalGap += (getPlayerGap(pid).gap ?? 0); });
-    const avgGap = pids.length > 0 ? Math.round(totalGap / pids.length) : 0;
     const cls = ['l1b', 'l2b', 'bb'][lineNum - 1] || 'ba';
     
     return `
       <div style="border:1px solid var(--bdr);border-radius:10px;overflow:hidden;min-width:0;">
         <div class="${cls}" style="padding:6px 8px;text-align:center;">
           <strong style="font-size:12px;">L${lineNum}</strong>
-          <div style="font-size:10px;opacity:0.8;">${pids.length} jug · GAP: ${avgGap > 0 ? '+' : ''}${avgGap}</div>
+          <div style="font-size:10px;opacity:0.8;">${pids.length} jugadores</div>
         </div>
         <div style="padding:6px;">
           ${pids.map(pid => renderAssigned(pid, lineNum)).join('')}
@@ -4551,21 +4610,21 @@ function coRenderLineAssignmentPanel(dateNum, confirmedPlayers) {
     if (!unassigned.length) return '<p style="font-size:11px;color:var(--txm);font-style:italic;">Todos los confirmados están asignados a una línea.</p>';
     
     return unassigned.map(p => {
-      const pg = getPlayerGap(p.id);
       const rec = coRecommendLine(p.id, dateNum);
-      const gapColor = pg.gap != null ? (pg.gap <= 5 ? 'var(--g8)' : pg.gap <= 15 ? 'var(--a6)' : 'var(--r8)') : 'var(--txm)';
-      const gapText = pg.gap != null ? (pg.gap > 0 ? '+' + pg.gap : '' + pg.gap) : 'S/D';
+      const prevLines = getPlayerPreviousLines(p.id, dateNum);
+      const lastLine = prevLines.length > 0 ? prevLines[prevLines.length - 1] : null;
+      const prevTag = lastLine ? `<span style="font-size:9px;color:var(--txm);font-style:italic;">Ant: L${lastLine}</span>` : '<span style="font-size:9px;color:var(--txm);font-style:italic;">Sin ant.</span>';
       
       return `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:var(--bg);border:1px solid var(--bdr);border-radius:8px;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
           <div style="display:flex;align-items:center;gap:6px;">
             <strong style="font-size:12px;">${p.short || p.name}</strong>
-            <span style="font-size:10px;color:var(--txm);">HCP ${pg.hcp ?? '?'}</span>
-            <span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${gapColor};">${gapText}</span>
+            <span style="font-size:10px;color:var(--txm);">HCP ${p.hcp ?? '?'}</span>
+            ${prevTag}
           </div>
           <div style="display:flex;gap:4px;">
             ${[1,2,3].map(ln => `
-              <button class="btn${ln === rec ? ' btn-p' : ''}" style="padding:3px 10px;font-size:11px;font-weight:600;${ln === rec ? '' : ''}" onclick="coAssignPlayer(${dateNum},${p.id},${ln})">
+              <button class="btn${ln === rec ? ' btn-p' : ''}" style="padding:3px 10px;font-size:11px;font-weight:600;" onclick="coAssignPlayer(${dateNum},${p.id},${ln})">
                 L${ln}${ln === rec ? ' ★' : ''}
               </button>
             `).join('')}
@@ -4584,7 +4643,7 @@ function coRenderLineAssignmentPanel(dateNum, confirmedPlayers) {
       </h3>
       
       <div class="alert ai" style="font-size:11px;margin-bottom:12px;">
-        Asigná jugadores confirmados a las 3 líneas reservadas. La ★ indica la línea recomendada según balance de GAP. <strong>GAP = Gross − Par − HCP</strong> (menor = más consistente).
+        Asigná jugadores confirmados a las 3 líneas reservadas. La ★ indica la línea recomendada para <strong>rotar y jugar con compañeros distintos</strong> a la fecha anterior.
       </div>
       
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
@@ -4713,45 +4772,38 @@ function getPlayerGap(pid) {
   };
 }
 
-function generateBalancedLines(confirmedPids, numLines = 3) {
-  // Separa titulares e invitados
-  const titulares = confirmedPids.filter(pid => {
-    const p = getPlayer(pid);
-    return p && !p.isInvitado;
-  });
-  const invitados = confirmedPids.filter(pid => {
-    const p = getPlayer(pid);
-    return p && p.isInvitado;
-  });
+function generateBalancedLines(confirmedPids, dateNum, numLines = 3) {
+  const lines = Array.from({ length: numLines }, (_, i) => ({ num: i + 1, pids: [] }));
   
-  // Ordenar por GAP (menor a mayor — los más consistentes primero)
-  const withGap = titulares.map(pid => ({ pid, ...getPlayerGap(pid) }));
-  withGap.sort((a, b) => (a.gap ?? 999) - (b.gap ?? 999));
-  
-  // Distribución serpentina
-  const lines = Array.from({ length: numLines }, (_, i) => ({ num: i + 1, pids: [], totalGap: 0 }));
-  
-  withGap.forEach((pg, idx) => {
-    // Serpentina: 0,1,2,2,1,0,0,1,2,...
-    const cycle = Math.floor(idx / numLines);
-    const posInCycle = idx % numLines;
-    const lineIdx = cycle % 2 === 0 ? posInCycle : (numLines - 1 - posInCycle);
-    lines[lineIdx].pids.push(pg.pid);
-    lines[lineIdx].totalGap += pg.gap ?? 0;
+  // Get previous line info for each player
+  const playersWithHistory = confirmedPids.map(pid => {
+    const prevLines = getPlayerPreviousLines(pid, dateNum);
+    const lastLine = prevLines.length > 0 ? prevLines[prevLines.length - 1] : null;
+    return { pid, lastLine, prevLines };
   });
   
-  // Distribuir invitados también serpentina
-  const invWithGap = invitados.map(pid => ({ pid, ...getPlayerGap(pid) }));
-  invWithGap.sort((a, b) => (a.gap ?? 999) - (b.gap ?? 999));
-  invWithGap.forEach((pg, idx) => {
-    // Asignar a la línea con menos jugadores, o la de mayor GAP (para balancear)
-    lines.sort((a, b) => a.pids.length - b.pids.length || a.totalGap - b.totalGap);
-    lines[0].pids.push(pg.pid);
-    lines[0].totalGap += pg.gap ?? 0;
+  // Sort: players who played before first (they have constraints), new players last
+  playersWithHistory.sort((a, b) => {
+    if (a.lastLine && !b.lastLine) return -1;
+    if (!a.lastLine && b.lastLine) return 1;
+    return 0;
   });
   
-  // Re-ordenar por número de línea
-  lines.sort((a, b) => a.num - b.num);
+  // Assign each player
+  playersWithHistory.forEach(({ pid, lastLine }) => {
+    // Find best line: 1) not same as last date, 2) fewest players
+    const candidates = lines
+      .map(l => ({
+        ...l,
+        isSameAsLast: l.num === lastLine
+      }))
+      .sort((a, b) => {
+        if (a.isSameAsLast !== b.isSameAsLast) return a.isSameAsLast ? 1 : -1;
+        return a.pids.length - b.pids.length;
+      });
+    
+    candidates[0].pids.push(pid);
+  });
   
   return lines;
 }
@@ -4768,7 +4820,6 @@ function coRenderLineBuilder() {
   const allPids = [...confirmedPids];
   registeredInvitados.forEach(p => {
     if (!allPids.includes(p.id)) {
-      // Solo agregar si están en alguna salida de esta fecha
       const fd = FD[dateNum];
       if (fd && fd.lineas) {
         fd.lineas.forEach(l => {
@@ -4781,72 +4832,81 @@ function coRenderLineBuilder() {
   });
   
   if (allPids.length < 2) {
-    document.getElementById('MOD').innerHTML = `
-      <div class="mo" onclick="closeM(event)">
-        <div class="md" style="max-width:500px;">
-          <div class="mh"><h3>🧮 Armador de Líneas</h3><button class="mc-btn" onclick="closeMD()">×</button></div>
-          <div class="mb"><p style="color:var(--txm);">Se necesitan al menos 2 jugadores confirmados para armar líneas.</p></div>
-          <div class="mf"><button class="btn" onclick="closeMD()">Cerrar</button></div>
-        </div>
-      </div>`;
+    document.getElementById('MOD').innerHTML = '<div class="mo" onclick="closeM(event)"><div class="md" style="max-width:500px;"><div class="mh"><h3>🧮 Armador de Líneas</h3><button class="mc-btn" onclick="closeMD()">×</button></div><div class="mb"><p style="color:var(--txm);">Se necesitan al menos 2 jugadores confirmados para armar líneas.</p></div><div class="mf"><button class="btn" onclick="closeMD()">Cerrar</button></div></div></div>';
     return;
   }
   
-  const lines = generateBalancedLines(allPids);
+  const lines = generateBalancedLines(allPids, dateNum);
   
-  const gapData = allPids.map(pid => ({ pid, ...getPlayerGap(pid) }));
+  // Build player data with previous line history
+  const pastDateNums = Object.keys(FD).map(Number).filter(n => n < dateNum && n !== 99).sort((a,b) => a - b);
+  
+  const playerData = allPids.map(pid => {
+    const p = getPlayer(pid);
+    const prevLines = getPlayerPreviousLines(pid, dateNum);
+    const lastLine = prevLines.length > 0 ? prevLines[prevLines.length - 1] : null;
+    const history = {};
+    pastDateNums.forEach(dn => {
+      const fd = FD[dn];
+      if (!fd || !fd.lineas) { history[dn] = null; return; }
+      let foundLine = null;
+      fd.lineas.forEach(l => { if (l.pids && l.pids.includes(pid)) foundLine = l.num; });
+      history[dn] = foundLine;
+    });
+    const sugLine = lines.find(l => l.pids.includes(pid))?.num || null;
+    return { pid, name: p?.name || p?.short || 'Jugador ' + pid, hcp: p?.hcp, lastLine, isInvitado: p?.isInvitado || false, history, sugLine };
+  });
+  
+  // Build table headers for past dates
+  let histHeaders = pastDateNums.map(n => '<th style="text-align:center;font-size:10px;">F' + n + '</th>').join('');
+  
+  // Build table rows
+  let tableRows = playerData.map(pd => {
+    let histCells = pastDateNums.map(dn => {
+      const ln = pd.history[dn];
+      return ln ? '<td style="text-align:center;font-weight:600;">L' + ln + '</td>' : '<td style="text-align:center;color:var(--txm);">—</td>';
+    }).join('');
+    let invBadge = pd.isInvitado ? ' <span class="bdg ba" style="font-size:9px;padding:1px 4px;">Inv</span>' : '';
+    return '<tr' + (pd.isInvitado ? ' style="opacity:0.7"' : '') + '><td>' + pd.name + invBadge + '</td><td style="text-align:center;">' + (pd.hcp ?? '—') + '</td>' + histCells + '<td style="text-align:center;font-weight:700;color:var(--acc);">L' + (pd.sugLine || '?') + '</td></tr>';
+  }).join('');
+  
+  // Build proposed lines columns
+  let linesHtml = lines.map((line, li) => {
+    const cls = ['l1b', 'l2b', 'bb'][li] || 'ba';
+    let playersHtml = line.pids.map(pid => {
+      const pd = playerData.find(p => p.pid === pid);
+      const prevColor = pd?.lastLine && pd.lastLine === line.num ? 'var(--r8)' : 'var(--g8)';
+      const prevText = pd?.lastLine ? 'Ant: L' + pd.lastLine : 'Nuevo';
+      let invBadge = pd?.isInvitado ? ' <span class="bdg ba" style="font-size:8px;padding:0 3px;">Inv</span>' : '';
+      return '<div style="padding:4px 0;font-size:12px;display:flex;justify-content:space-between;border-bottom:1px solid var(--bdr);"><span>' + (pd?.name || 'Jugador ' + pid) + invBadge + '</span><span style="font-size:10px;color:' + prevColor + ';font-style:italic;">' + prevText + '</span></div>';
+    }).join('');
+    if (line.pids.length === 0) playersHtml = '<p style="font-size:11px;color:var(--txm);text-align:center;">Sin jugadores</p>';
+    return '<div style="border:1px solid var(--bdr);border-radius:10px;overflow:hidden;"><div class="' + cls + '" style="padding:8px 10px;text-align:center;"><strong>Línea ' + line.num + '</strong><div style="font-size:11px;opacity:0.8;">' + line.pids.length + ' jugadores</div></div><div style="padding:8px;">' + playersHtml + '</div></div>';
+  }).join('');
   
   document.getElementById('MOD').innerHTML = `
     <div class="mo" onclick="closeM(event)">
-      <div class="md" style="max-width:650px;">
+      <div class="md" style="max-width:700px;">
         <div class="mh">
           <h3>🧮 Armador Inteligente de Líneas — Fecha ${dateNum}</h3>
           <button class="mc-btn" onclick="closeMD()">×</button>
         </div>
         <div class="mb">
           <div class="alert ai" style="font-size:12px;margin-bottom:12px;">
-            Distribución serpentina por <strong>GAP de rendimiento</strong>. GAP = Gross Promedio − Par − HCP. Menor GAP = juega más consistente con su HCP.
+            Distribución por <strong>rotación</strong>: cada jugador se asigna a una línea distinta a la fecha anterior, para que todos jueguen con todos.
           </div>
           
-          <h4 style="margin:0 0 8px 0;">📊 GAPs del Plantel</h4>
-          <table style="width:100%;margin-bottom:16px;font-size:12px;">
-            <thead><tr><th>Jugador</th><th>HCP</th><th>GAP</th><th>Fechas</th></tr></thead>
-            <tbody>
-              ${gapData.sort((a,b) => (a.gap ?? 999) - (b.gap ?? 999)).map(g => `
-                <tr${g.isInvitado ? ' style="opacity:0.7"' : ''}>
-                  <td>${g.fullName || g.name}${g.isInvitado ? ' <span class="bdg ba" style="font-size:9px;padding:1px 4px;">Inv</span>' : ''}</td>
-                  <td>${g.hcp ?? '—'}</td>
-                  <td style="font-family:'DM Mono',monospace;font-weight:600;color:${g.gap != null ? (g.gap <= 5 ? 'var(--g8)' : g.gap <= 15 ? 'var(--a6)' : 'var(--r8)') : 'var(--txm)'}">${g.gap != null ? (g.gap > 0 ? '+' + g.gap : g.gap) : 'S/D'}</td>
-                  <td>${g.fechas}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+          <h4 style="margin:0 0 8px 0;">📊 Historial de Líneas</h4>
+          <div style="overflow-x:auto;margin-bottom:16px;">
+            <table style="width:100%;font-size:12px;">
+              <thead><tr><th style="text-align:left;">Jugador</th><th>HCP</th>${histHeaders}<th style="color:var(--acc);">Sug.</th></tr></thead>
+              <tbody>${tableRows}</tbody>
+            </table>
+          </div>
           
           <h4 style="margin:0 0 12px 0;">⛳ Líneas Propuestas</h4>
           <div style="display:grid;grid-template-columns:repeat(${lines.length},1fr);gap:10px;">
-            ${lines.map((line, li) => {
-              const avgGap = line.pids.length > 0 ? Math.round(line.totalGap / line.pids.length) : 0;
-              const cls = ['l1b', 'l2b', 'bb'][li] || 'ba';
-              return `
-                <div style="border:1px solid var(--bdr);border-radius:10px;overflow:hidden;">
-                  <div class="${cls}" style="padding:8px 10px;text-align:center;">
-                    <strong>Línea ${line.num}</strong>
-                    <div style="font-size:11px;opacity:0.8;">${line.pids.length} jugadores · GAP prom: ${avgGap > 0 ? '+' : ''}${avgGap}</div>
-                  </div>
-                  <div style="padding:8px;">
-                    ${line.pids.map(pid => {
-                      const pg = gapData.find(g => g.pid === pid);
-                      return `<div style="padding:4px 0;font-size:12px;display:flex;justify-content:space-between;border-bottom:1px solid var(--bdr);">
-                        <span>${pg?.fullName || pg?.name || 'ID:' + pid}${pg?.isInvitado ? ' <span class="bdg ba" style="font-size:8px;padding:0 3px;">Inv</span>' : ''}</span>
-                        <span style="font-family:'DM Mono',monospace;font-size:11px;color:${pg?.gap != null ? (pg.gap <= 5 ? 'var(--g8)' : pg.gap <= 15 ? 'var(--a6)' : 'var(--r8)') : 'var(--txm)'}">${pg?.gap != null ? (pg.gap > 0 ? '+' + pg.gap : pg.gap) : 'S/D'}</span>
-                      </div>`;
-                    }).join('')}
-                    ${line.pids.length === 0 ? '<p style="font-size:11px;color:var(--txm);text-align:center;">Sin jugadores</p>' : ''}
-                  </div>
-                </div>
-              `;
-            }).join('')}
+            ${linesHtml}
           </div>
           
           <div style="margin-top:12px;">
