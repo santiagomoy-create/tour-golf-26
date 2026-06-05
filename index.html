@@ -3020,6 +3020,7 @@ let livePlayerId = null;
 let liveDateNum = null;
 let liveHoles = new Array(18).fill(0);
 let livePutts = new Array(18).fill(0);
+let liveHcp = null;
 let syncStatus = 'idle';
 let liveSyncTimeout = null;
 
@@ -3121,6 +3122,11 @@ function rLive(el) {
           </select>
         </div>
       </div>
+      <div id="live-hcp-row" style="display:${livePlayerId ? 'flex' : 'none'}; align-items:center; gap:12px; margin-top:12px; padding-top:12px; border-top:1px solid var(--bdr);">
+        <label style="font-size:13px; font-weight:600; color:var(--tx); white-space:nowrap;">⛳ Tu HCP para hoy:</label>
+        <input type="number" class="fc" id="live-hcp-input" value="${liveHcp ?? (getPlayer(livePlayerId)?.hcp || 0)}" min="0" max="54" step="0.1" style="width:80px; text-align:center; font-size:16px; font-weight:700; font-family:'DM Mono',monospace;" onchange="onLiveHcpChange(this.value)">
+        <span style="font-size:11px; color:var(--txm);">Ingresá tu handicap actualizado al día de hoy</span>
+      </div>
     </div>
 
     <div id="live-scorecard-container" class="hidden"></div>
@@ -3166,6 +3172,7 @@ function onLivePlayerChange(pid) {
     livePlayerId = newPid;
     liveHoles = new Array(18).fill(0);
     livePutts = new Array(18).fill(0);
+    liveHcp = hcp;
     rLive(document.getElementById('MC'));
     return;
   }
@@ -3176,9 +3183,12 @@ function onLivePlayerChange(pid) {
     const sc = fd.scores[livePlayerId];
     liveHoles = [...sc.holes];
     livePutts = sc.putts ? [...sc.putts] : new Array(18).fill(0);
+    liveHcp = sc.hcp ?? getPlayer(livePlayerId)?.hcp ?? 0;
   } else {
     liveHoles = new Array(18).fill(0);
     livePutts = new Array(18).fill(0);
+    const selPlayer = getPlayer(livePlayerId);
+    liveHcp = selPlayer?.hcp || 0;
   }
   renderLiveHolesPager();
 }
@@ -3189,6 +3199,7 @@ function onLiveDateChange(dnum) {
   livePlayerId = null;
   liveHoles = new Array(18).fill(0);
   livePutts = new Array(18).fill(0);
+  liveHcp = null;
   rLive(document.getElementById('MC'));
 }
 
@@ -3248,22 +3259,46 @@ function renderLiveHolesPager() {
   const courseId = fd ? fd.course : sched.course;
   const c = getCourse(courseId);
   
-  let circlesHtml = '';
-  for (let i = 1; i <= 18; i++) {
-    const isCurrent = liveHole === i;
-    const scoreVal = liveHoles[i-1];
-    const hasScore = scoreVal > 0;
+  // Build scorecard table (IDA: 1-9, VUELTA: 10-18)
+  let scorecardHtml = '';
+  [['IDA', 0, 9], ['VUELTA', 9, 18]].forEach(([label, start, end]) => {
+    let headerRow = '<tr><th style="font-size:9px;color:var(--txm);padding:4px 2px;text-align:center;min-width:28px;">HOYO</th>';
+    let parRow = '<tr><td style="font-size:9px;color:var(--txm);padding:2px;text-align:center;font-weight:600;">PAR</td>';
+    let hdiRow = '<tr><td style="font-size:9px;color:var(--txm);padding:2px;text-align:center;font-weight:600;">HDI</td>';
+    let scoreRow = '<tr><td style="font-size:9px;color:var(--txm);padding:2px;text-align:center;font-weight:700;">SCORE</td>';
+    let puttRow = '<tr><td style="font-size:9px;color:var(--txm);padding:2px;text-align:center;font-weight:600;">PUTTS</td>';
     
-    let style = 'width:32px; height:32px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; cursor:pointer; font-weight:600; border:1px solid var(--bdr); flex-shrink:0;';
-    if (isCurrent) {
-      style += 'background:var(--acc); color:#fff; border-color:var(--acc); transform: scale(1.15);';
-    } else if (hasScore) {
-      style += 'background:var(--g0); color:var(--g8); border-color:var(--g1);';
-    } else {
-      style += 'background:var(--surf); color:var(--tx2);';
+    let totalPar = 0, totalScore = 0, totalPutt = 0, holesPlayed = 0;
+    for (let i = start; i < end; i++) {
+      const holeNum = i + 1;
+      const isCurrent = liveHole === holeNum;
+      const scoreVal = liveHoles[i];
+      const puttVal = livePutts[i];
+      const hasScore = scoreVal > 0;
+      const par = c.par[i];
+      const hdi = c.hdi[i];
+      totalPar += par;
+      if (hasScore) { totalScore += scoreVal; totalPutt += puttVal; holesPlayed++; }
+      
+      const holeBg = isCurrent ? 'background:var(--acc);color:#fff;' : '';
+      const scoreBg = !hasScore ? 'color:var(--txm);' : scoreVal < par ? 'color:var(--g8);font-weight:800;' : scoreVal === par ? 'font-weight:700;' : scoreVal === par + 1 ? 'color:var(--a8);font-weight:700;' : 'color:var(--r8);font-weight:700;';
+      
+      headerRow += '<th style="padding:4px 1px;text-align:center;font-size:10px;cursor:pointer;' + holeBg + 'border-radius:4px;min-width:26px;" onclick="setLiveHole(' + holeNum + ')">' + holeNum + '</th>';
+      parRow += '<td style="padding:2px 1px;text-align:center;font-size:10px;color:var(--txm);">' + par + '</td>';
+      hdiRow += '<td style="padding:2px 1px;text-align:center;font-size:9px;color:var(--tx2);font-style:italic;">' + hdi + '</td>';
+      scoreRow += '<td style="padding:3px 1px;text-align:center;font-size:12px;font-family:'DM Mono',monospace;cursor:pointer;' + scoreBg + '" onclick="setLiveHole(' + holeNum + ')">' + (hasScore ? scoreVal : '·') + '</td>';
+      puttRow += '<td style="padding:2px 1px;text-align:center;font-size:10px;color:' + (puttVal > 0 ? 'var(--tx)' : 'var(--txm)') + ';">' + (puttVal > 0 ? puttVal : '·') + '</td>';
     }
-    circlesHtml += `<div style="${style}" onclick="setLiveHole(${i})">${hasScore ? scoreVal : i}</div>`;
-  }
+    
+    // Totals column
+    headerRow += '<th style="padding:4px 2px;text-align:center;font-size:9px;color:var(--txm);border-left:2px solid var(--bdr);min-width:32px;">TOT</th></tr>';
+    parRow += '<td style="padding:2px;text-align:center;font-size:10px;font-weight:700;border-left:2px solid var(--bdr);">' + totalPar + '</td></tr>';
+    hdiRow += '<td style="border-left:2px solid var(--bdr);"></td></tr>';
+    scoreRow += '<td style="padding:3px 2px;text-align:center;font-size:12px;font-weight:700;font-family:'DM Mono',monospace;border-left:2px solid var(--bdr);">' + (holesPlayed > 0 ? totalScore : '·') + '</td></tr>';
+    puttRow += '<td style="padding:2px;text-align:center;font-size:10px;font-weight:600;border-left:2px solid var(--bdr);">' + (totalPutt > 0 ? totalPutt : '·') + '</td></tr>';
+    
+    scorecardHtml += '<div style="margin-bottom:8px;"><div style="font-size:10px;font-weight:600;color:var(--txm);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">' + label + '</div><div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;border:1px solid var(--bdr);border-radius:6px;">' + headerRow + parRow + hdiRow + scoreRow + puttRow + '</table></div></div>';
+  });
 
   const curPar = c.par[liveHole - 1];
   const curHdi = c.hdi[liveHole - 1];
@@ -3273,7 +3308,7 @@ function renderLiveHolesPager() {
 
   const playedHolesCount = liveHoles.filter(x => x > 0).length;
   const liveGross = liveHoles.filter(x => x > 0).reduce((a, b) => a + b, 0);
-  const hcp = p.hcp || 0;
+  const hcp = liveHcp ?? p.hcp ?? 0;
   
   const liveStb = stb(liveHoles, hcp, c.par, c.hdi);
   const proratedHcp = (hcp * playedHolesCount / 18);
@@ -3296,9 +3331,7 @@ function renderLiveHolesPager() {
 
   container.innerHTML = `
     <div class="card" style="margin-bottom:20px; overflow-x:auto;">
-      <div style="display:flex; gap:8px; padding-bottom:4px; justify-content: space-between;">
-        ${circlesHtml}
-      </div>
+      ${scorecardHtml}
     </div>
 
     <div class="card" style="margin-bottom:20px; text-align:center; position:relative; overflow:hidden;">
@@ -3414,13 +3447,19 @@ function setLivePuttVal(val) {
   triggerLiveSync();
 }
 
+function onLiveHcpChange(val) {
+  liveHcp = parseFloat(val) || 0;
+  renderLiveHolesPager();
+  triggerLiveSync();
+}
+
 function triggerLiveSync() {
   const fd = FD[liveDateNum];
   if (fd) {
     if (!fd.scores[livePlayerId]) {
       const p = getPlayer(livePlayerId);
       fd.scores[livePlayerId] = {
-        hcp: p?.hcp || 0,
+        hcp: liveHcp ?? p?.hcp ?? 0,
         holes: [...liveHoles],
         putts: [...livePutts],
         h19: false, approach: false, hoyoEnUno: false, noApp: false, noCard: false, abandon: false, noShow: false,
@@ -3455,7 +3494,7 @@ function triggerLiveSync() {
           action: 'saveLiveScore',
           dateNum: liveDateNum,
           playerId: livePlayerId,
-          handicap: p?.hcp || 0,
+          handicap: liveHcp ?? p?.hcp ?? 0,
           holes: liveHoles,
           putts: livePutts
         })
