@@ -1491,7 +1491,7 @@ function rDash(el){
     </button>
   </div>
   <div class="mg">
-    <div class="mc"><div class="ml">Fechas jugadas</div><div class="mv">${Object.keys(FD).length}<span style="font-size:16px;color:var(--txm)"> / 6</span></div><div class="ms">Próxima: ${nextDateStr}</div></div>
+    <div class="mc"><div class="ml">Fechas jugadas</div><div class="mv">${SCHED.filter(s => s.status === 'played' && s.num !== 99).length}<span style="font-size:16px;color:var(--txm)"> / 6</span></div><div class="ms">Próxima: ${nextDateStr}</div></div>
     <div class="mc"><div class="ml">Líder Stableford</div><div class="mv" style="font-size:18px">${lS?.p.short||'—'}</div><div class="ms">${lS?lS.stb+' pts acum.':''}</div></div>
     <div class="mc"><div class="ml">Líder Medal</div><div class="mv" style="font-size:18px">${lM?.p.short||'—'}</div><div class="ms">${lM?lM.medal+' pts acum.':''}</div></div>
     <div class="mc"><div class="ml">Líder Mixto</div><div class="mv" style="font-size:18px">${lX?.p.short||'—'}</div><div class="ms">${lX?lX.mixed+' pts acum.':''}</div></div>
@@ -2811,6 +2811,77 @@ function logoutAdmin() {
   nav('dashboard');
 }
 
+function buildAdminDateManagement() {
+  let html = '<div style="border-top: 1px solid var(--bdr); padding-top: 16px; margin-bottom: 20px;">';
+  html += '<h4 style="margin: 0 0 10px 0; color: var(--tx);">📅 Gestión de Fechas</h4>';
+  html += '<p style="font-size:11px; color:var(--txm); margin-bottom:12px;">Activá una fecha para habilitar el marcador en vivo. Solo las fechas con status "Próxima" permiten anotar golpes.</p>';
+  html += '<div style="display:flex;flex-direction:column;gap:8px;">';
+  
+  SCHED.filter(s => s.num !== 99).forEach(s => {
+    const statusLabel = s.status === 'played' ? '✅ Jugada' : s.status === 'upcoming' ? '🟢 Activa' : '⚪ Pendiente';
+    const statusColor = s.status === 'played' ? 'var(--g8)' : s.status === 'upcoming' ? 'var(--acc)' : 'var(--txm)';
+    const courseName = s.course ? getCourse(s.course).name : 'Sin cancha';
+    
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--bdr);border-radius:8px;flex-wrap:wrap;gap:6px;">';
+    html += '<div>';
+    html += '<strong style="font-size:13px;">F' + s.num + '</strong>';
+    html += '<span style="font-size:11px;color:var(--txm);margin-left:6px;">' + formatDate(s.date) + ' · ' + courseName + '</span>';
+    html += '<div style="font-size:11px;color:' + statusColor + ';font-weight:600;margin-top:2px;">' + statusLabel + '</div>';
+    html += '</div>';
+    html += '<div style="display:flex;gap:4px;flex-wrap:wrap;">';
+    if (s.status !== 'upcoming') {
+      html += '<button class="btn btn-s" style="padding:4px 10px;font-size:11px;background:var(--acc);color:#fff;border:none;font-weight:600;" onclick="adminSetDateStatus(' + s.num + ',\'upcoming\')">🟢 Activar</button>';
+    }
+    if (s.status !== 'played') {
+      html += '<button class="btn btn-s" style="padding:4px 10px;font-size:11px;" onclick="adminSetDateStatus(' + s.num + ',\'played\')">✅ Finalizar</button>';
+    }
+    if (s.status !== 'pending') {
+      html += '<button class="btn btn-s" style="padding:4px 10px;font-size:11px;" onclick="adminSetDateStatus(' + s.num + ',\'pending\')">⚪ Pendiente</button>';
+    }
+    html += '</div></div>';
+  });
+  
+  html += '</div></div>';
+  return html;
+}
+
+async function adminSetDateStatus(dateNum, newStatus) {
+  if (!APPS_SCRIPT_URL) {
+    alert('⚠️ No hay URL de Apps Script configurada.');
+    return;
+  }
+  
+  const statusLabels = { pending: 'Pendiente', upcoming: 'Activa (Próxima)', played: 'Jugada' };
+  if (!confirm('¿Cambiar Fecha ' + dateNum + ' a "' + statusLabels[newStatus] + '"?')) return;
+  
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'updateSchedStatus',
+        pin: storage.get('golf_admin_pin'),
+        dateNum: dateNum,
+        status: newStatus
+      })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      // Update local SCHED
+      const s = SCHED.find(s => s.num === dateNum);
+      if (s) s.status = newStatus;
+      alert('✅ ' + data.message);
+      closeMD();
+      openAdminSettingsModal(); // Refresh the modal
+    } else {
+      alert('❌ Error: ' + data.error);
+    }
+  } catch (err) {
+    alert('❌ Error de red: ' + err.message);
+  }
+}
+
+
 function openAdminSettingsModal() {
   closeMoreMenuForce();
   document.getElementById('MOD').innerHTML = `
@@ -2826,6 +2897,8 @@ function openAdminSettingsModal() {
             <input type="text" class="fc" id="admin-url-input" placeholder="https://script.google.com/macros/s/.../exec" value="${APPS_SCRIPT_URL}">
             <div style="font-size:11px;color:var(--txm);margin-top:4px;">Introducí la URL del Web App publicada en tu Apps Script para guardar y sincronizar en vivo.</div>
           </div>
+          
+          ${buildAdminDateManagement()}
           
           <div style="border-top: 1px solid var(--bdr); padding-top: 16px; margin-bottom: 20px;">
             <h4 style="margin: 0 0 10px 0; color: var(--tx);">🧪 Zona de Pruebas & Simulación</h4>
