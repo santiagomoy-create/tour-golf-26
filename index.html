@@ -3286,7 +3286,7 @@ function renderLiveHolesPager() {
       headerRow += '<th style="padding:4px 1px;text-align:center;font-size:10px;cursor:pointer;' + holeBg + 'border-radius:4px;min-width:26px;" onclick="setLiveHole(' + holeNum + ')">' + holeNum + '</th>';
       parRow += '<td style="padding:2px 1px;text-align:center;font-size:10px;color:var(--txm);">' + par + '</td>';
       hdiRow += '<td style="padding:2px 1px;text-align:center;font-size:9px;color:var(--tx2);font-style:italic;">' + hdi + '</td>';
-      scoreRow += '<td style="padding:3px 1px;text-align:center;font-size:12px;font-family:'DM Mono',monospace;cursor:pointer;' + scoreBg + '" onclick="setLiveHole(' + holeNum + ')">' + (hasScore ? scoreVal : '·') + '</td>';
+      scoreRow += '<td style="padding:3px 1px;text-align:center;font-size:12px;font-family:\'DM Mono\',monospace;cursor:pointer;' + scoreBg + '" onclick="setLiveHole(' + holeNum + ')">' + (hasScore ? scoreVal : '·') + '</td>';
       puttRow += '<td style="padding:2px 1px;text-align:center;font-size:10px;color:' + (puttVal > 0 ? 'var(--tx)' : 'var(--txm)') + ';">' + (puttVal > 0 ? puttVal : '·') + '</td>';
     }
     
@@ -3294,7 +3294,7 @@ function renderLiveHolesPager() {
     headerRow += '<th style="padding:4px 2px;text-align:center;font-size:9px;color:var(--txm);border-left:2px solid var(--bdr);min-width:32px;">TOT</th></tr>';
     parRow += '<td style="padding:2px;text-align:center;font-size:10px;font-weight:700;border-left:2px solid var(--bdr);">' + totalPar + '</td></tr>';
     hdiRow += '<td style="border-left:2px solid var(--bdr);"></td></tr>';
-    scoreRow += '<td style="padding:3px 2px;text-align:center;font-size:12px;font-weight:700;font-family:'DM Mono',monospace;border-left:2px solid var(--bdr);">' + (holesPlayed > 0 ? totalScore : '·') + '</td></tr>';
+    scoreRow += '<td style="padding:3px 2px;text-align:center;font-size:12px;font-weight:700;font-family:\'DM Mono\',monospace;border-left:2px solid var(--bdr);">' + (holesPlayed > 0 ? totalScore : '·') + '</td></tr>';
     puttRow += '<td style="padding:2px;text-align:center;font-size:10px;font-weight:600;border-left:2px solid var(--bdr);">' + (totalPutt > 0 ? totalPutt : '·') + '</td></tr>';
     
     scorecardHtml += '<div style="margin-bottom:8px;"><div style="font-size:10px;font-weight:600;color:var(--txm);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">' + label + '</div><div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;border:1px solid var(--bdr);border-radius:6px;">' + headerRow + parRow + hdiRow + scoreRow + puttRow + '</table></div></div>';
