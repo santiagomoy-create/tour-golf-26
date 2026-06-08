@@ -674,40 +674,40 @@ const GIDS = {
 // HELPER: Fetch universal para Google Apps Script
 // ════════════════════════════════════════════════════
 async function golfApiFetch(payload) {
-  // FORZAR SIEMPRE LA URL CORRECTA (ignorando localStorage si es vieja)
+  // Siempre usamos la URL oficial actual
   const FORCED_URL = 'https://script.google.com/macros/s/AKfycbxDf7lRnkAAGsDA3sN8Y_RK_8JeeGy2O9bJtPXQgw0E5i3L75D8fYDB6QfTjG2_ZakdkA/exec';
-  let targetUrl = APPS_SCRIPT_URL || FORCED_URL;
-  if (!targetUrl.includes('AKfy')) targetUrl = FORCED_URL;
+  let targetUrl = FORCED_URL;
   
-  // Si la acción es muy pesada (parseCard), USAMOS POST.
-  if (payload.action === 'parseCard') {
+  if (APPS_SCRIPT_URL && APPS_SCRIPT_URL.includes('AKfy')) {
+    targetUrl = APPS_SCRIPT_URL;
+  }
+
+  try {
     const res = await window.fetch(targetUrl, {
       method: 'POST',
       redirect: 'follow',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(payload)
     });
+    
+    if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
     const text = await res.text();
-    return JSON.parse(text);
+    
+    if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+      throw new Error('Google devolvió HTML. Verifica que el script esté desplegado para ejecutarse como "Tú" y con acceso para "Cualquiera".');
+    }
+    
+    const jsonRes = JSON.parse(text);
+    if (payload.action !== 'getSpreadsheetData' && !jsonRes.success) {
+      alert("Error del Servidor: " + jsonRes.error);
+    }
+    return jsonRes;
+  } catch (err) {
+    if (payload.action !== 'getSpreadsheetData') {
+      alert("Falla de conexión al guardar: " + err.message);
+    }
+    throw err;
   }
-  
-  // Para guardar/cargar datos, usamos GET con URL parameters.
-  // Esto soluciona de raíz los problemas de CORS y bloqueos del navegador
-  // al redirigir POST en Google Apps Script.
-  const payloadStr = encodeURIComponent(JSON.stringify(payload));
-  const res = await window.fetch(`${targetUrl}?data=${payloadStr}`, {
-    method: 'GET',
-    redirect: 'follow'
-  });
-  
-  if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
-  const text = await res.text();
-  
-  if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
-    throw new Error('Google devolvió HTML (posible problema de sesión múltiple o despliegue).');
-  }
-  
-  return JSON.parse(text);
 }
 
 // Función para parsear CSV a objetos JSON de manera limpia y robusta
