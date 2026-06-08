@@ -612,6 +612,7 @@ tr:hover td{background:var(--gray0)}
 </div>
 
 <script>
+
 // Error catching overlay for easy debugging on mobile and without console access
 window.addEventListener('error', function(e) {
   showErrorOverlay(e.error || new Error(e.message));
@@ -676,7 +677,12 @@ const GIDS = {
 async function golfApiFetch(payload) {
   if (!APPS_SCRIPT_URL) throw new Error("URL de Apps Script no configurada");
   
-  const res = await golfApiFetch(payload);
+  const res = await window.fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload)
+  });
   
   if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
   const text = await res.text();
