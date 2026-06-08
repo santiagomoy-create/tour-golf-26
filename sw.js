@@ -36,6 +36,9 @@ self.addEventListener('activate', (e) => {
 
 // Interceptar peticiones
 self.addEventListener('fetch', (e) => {
+  // Solo interceptar solicitudes GET (las solicitudes POST no se pueden almacenar en caché)
+  if (e.request.method !== 'GET') return;
+
   // Estrategia Network-First para todos los recursos (estáticos locales, hojas de Google Sheets, APIs).
   // Esto asegura que si el usuario tiene conexión a internet, siempre cargará la versión más reciente
   // (solucionando problemas donde se sigue viendo el código viejo por caché local de PWA),

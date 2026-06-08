@@ -676,12 +676,7 @@ const GIDS = {
 async function golfApiFetch(payload) {
   if (!APPS_SCRIPT_URL) throw new Error("URL de Apps Script no configurada");
   
-  const res = await fetch(APPS_SCRIPT_URL, {
-    method: 'POST',
-    redirect: 'follow',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(payload)
-  });
+  const res = await golfApiFetch(payload);
   
   if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
   const text = await res.text();
@@ -2050,17 +2045,11 @@ async function analyzeImg(dataUrl,fname){
   const mt=dataUrl.split(';')[0].split(':')[1]||'image/jpeg';
   
   try{
-    const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
+    const data = await golfApiFetch({
         action: 'parseCard',
         imageBase64: b64,
         mimeType: mt
-      })
-    });
-    
-    const data = await resp.json();
+      });
     if (!data.success) {
       throw new Error(data.error || "Error analizando tarjeta.");
     }
@@ -2390,10 +2379,7 @@ async function saveF(){
         btn.textContent = "Sincronizando con Google Sheets...";
       }
       
-      const resp = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({
+      const data = await golfApiFetch({
           action: 'saveOfficial',
           pin: 'golf2026',
           dateNum: fn,
@@ -2401,9 +2387,7 @@ async function saveF(){
           dateStr: date,
           lineas: CS.lineas,
           scores: CS.scores
-        })
-      });
-      const data = await resp.json();
+        });
       if (data.success) {
         alert("✓ Fecha guardada y sincronizada correctamente en Google Sheets.");
       } else {
@@ -2894,18 +2878,13 @@ async function saveEventHole(dateNum) {
   if (!APPS_SCRIPT_URL) return;
   
   try {
-    const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
+    const data = await golfApiFetch({
         action: 'updateSchedEventHoles',
         pin: storage.get('golf_admin_pin'),
         dateNum: dateNum,
         approachHole: approachHole,
         longdriveHole: longdriveHole
-      })
-    });
-    const data = await resp.json();
+      });
     if (!data.success) {
       console.error('Error saving event holes:', data.error);
     }
@@ -2958,17 +2937,12 @@ async function adminSetDateStatus(dateNum, newStatus) {
   if (!confirm('¿Cambiar Fecha ' + dateNum + ' a "' + statusLabels[newStatus] + '"?')) return;
   
   try {
-    const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
+    const data = await golfApiFetch({
         action: 'updateSchedStatus',
         pin: storage.get('golf_admin_pin'),
         dateNum: dateNum,
         status: newStatus
-      })
-    });
-    const data = await resp.json();
+      });
     if (data.success) {
       // Update local SCHED
       const s = SCHED.find(s => s.num === dateNum);
@@ -3092,16 +3066,11 @@ async function saveAdminSettings() {
   // Guardar configuración de simulación de forma global en Google Sheets
   if (APPS_SCRIPT_URL) {
     try {
-      const resp = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({
+      const data = await golfApiFetch({
           action: 'setSimulationMode',
           pin: 'golf2026',
           active: testModeActive
-        })
-      });
-      const data = await resp.json();
+        });
       if (!data.success) {
         console.warn("⚠️ Falló sincronización de simulación en Sheets:", data.error);
       }
@@ -3261,17 +3230,13 @@ function saveFourballConfig(dateNum, lineNum) {
   
   // Save to backend if available
   if (APPS_SCRIPT_URL) {
-    fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
+    golfApiFetch({
         action: 'saveFourball',
         dateNum: dateNum,
         lineNum: lineNum,
         teamA: [a1, a2].join(','),
         teamB: [b1, b2].join(',')
-      })
-    }).catch(err => console.error('Error saving fourball:', err));
+      }).catch(err => console.error('Error saving fourball:', err));
   }
   
   closeMD();
@@ -3943,10 +3908,7 @@ function triggerLiveSync() {
   liveSyncTimeout = setTimeout(async () => {
     try {
       const p = getPlayer(livePlayerId);
-      const resp = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({
+      const data = await golfApiFetch({
           action: 'saveLiveScore',
           dateNum: liveDateNum,
           playerId: scoringPid,
@@ -3954,9 +3916,7 @@ function triggerLiveSync() {
           hcp_index: liveHcpIndex ?? p?.hcp ?? 0,
           holes: liveHoles,
           putts: livePutts
-        })
-      });
-      const data = await resp.json();
+        });
       if (data.success) {
         syncStatus = 'success';
       } else {
@@ -4291,10 +4251,7 @@ async function coSubmitAttendanceOnly() {
   }
   
   try {
-    const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
+    const data = await golfApiFetch({
         action: 'saveCoordination',
         dateNum: selectedCoordDateNum,
         playerId,
@@ -4302,10 +4259,7 @@ async function coSubmitAttendanceOnly() {
         confirmed,
         votedCourseId: '', 
         customCourse: null
-      })
-    });
-    
-    const data = await resp.json();
+      });
     if (data.success) {
       alert("✅ Asistencia registrada con éxito.");
       await cargarDesdeGoogleSheets();
@@ -4620,10 +4574,7 @@ async function coSubmitCourseVote(courseId) {
   }
 
   try {
-    const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
+    const data = await golfApiFetch({
         action: 'saveCoordination',
         dateNum: selectedCoordDateNum,
         playerId,
@@ -4631,9 +4582,7 @@ async function coSubmitCourseVote(courseId) {
         confirmed: true,
         votedCourseId: courseId,
         customCourse
-      })
-    });
-    const data = await resp.json();
+      });
     if (data.success) {
       alert("✅ Voto registrado con éxito.");
       customCourseProposed = null;
@@ -4651,17 +4600,12 @@ async function coAdminSetCourse(dateNum, courseId) {
   const pin = storage.get('golf_admin_pin') || 'golf2026';
   
   try {
-    const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
+    const data = await golfApiFetch({
         action: 'updateSchedCourse',
         dateNum,
         courseId,
         pin
-      })
-    });
-    const data = await resp.json();
+      });
     if (data.success) {
       alert("✅ Cancha actualizada.");
       await cargarDesdeGoogleSheets();
@@ -4761,17 +4705,12 @@ async function coSaveTeeTimes(dateNum) {
   }));
   
   try {
-    const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
+    const data = await golfApiFetch({
         action: 'saveFlights',
         dateNum,
         pin: storage.get('golf_admin_pin') || 'golf2026',
         flights
-      })
-    });
-    const data = await resp.json();
+      });
     if (data.success) {
       alert("✅ Horarios guardados con éxito.");
       await cargarDesdeGoogleSheets();
@@ -5000,10 +4939,7 @@ async function coSaveInvitado() {
   if (!playerId || !pinEntered) { alert('Debe autenticarse primero.'); return; }
   
   try {
-    const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
+    const data = await golfApiFetch({
         action: 'saveInvitadoSugerido',
         dateNum: selectedCoordDateNum,
         suggestedBy: playerId,
@@ -5014,9 +4950,7 @@ async function coSaveInvitado() {
         matricula: document.getElementById('co-inv-mat')?.value?.trim() || '',
         handicap: document.getElementById('co-inv-hcp')?.value?.trim() || '',
         observaciones: document.getElementById('co-inv-obs')?.value?.trim() || ''
-      })
-    });
-    const data = await resp.json();
+      });
     if (data.success) {
       alert('✅ Invitado sugerido guardado.');
       await cargarDesdeGoogleSheets();
@@ -5036,18 +4970,13 @@ async function coDeleteInvitado(nombre) {
   const pinEntered = storage.get('golf_player_pin');
   
   try {
-    const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
+    const data = await golfApiFetch({
         action: 'deleteInvitadoSugerido',
         dateNum: selectedCoordDateNum,
         suggestedBy: playerId,
         pinEntered,
         nombre
-      })
-    });
-    const data = await resp.json();
+      });
     if (data.success) {
       await cargarDesdeGoogleSheets();
       rCoord(document.getElementById('MC'));
@@ -5285,17 +5214,12 @@ async function coSaveLineAssignments(dateNum) {
   }
   
   try {
-    const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
+    const data = await golfApiFetch({
         action: 'saveFlights',
         dateNum,
         pin: storage.get('golf_admin_pin') || 'golf2026',
         flights
-      })
-    });
-    const data = await resp.json();
+      });
     if (data.success) {
       alert('✅ Líneas guardadas correctamente.');
       await cargarDesdeGoogleSheets();
@@ -5513,17 +5437,12 @@ async function coSaveGeneratedFlights(dateNum, linesPids) {
   }));
   
   try {
-    const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
+    const data = await golfApiFetch({
         action: 'saveFlights',
         dateNum,
         pin: storage.get('golf_admin_pin') || 'golf2026',
         flights
-      })
-    });
-    const data = await resp.json();
+      });
     if (data.success) {
       alert('✅ Líneas guardadas correctamente.');
       closeMD();
@@ -5601,10 +5520,7 @@ async function coRegisterInvitado(email, whatsapp) {
   if (!nombre) { alert('El nombre es obligatorio.'); return; }
   
   try {
-    const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
+    const data = await golfApiFetch({
         action: 'registerInvitado',
         pin: storage.get('golf_admin_pin') || 'golf2026',
         nombre,
@@ -5614,9 +5530,7 @@ async function coRegisterInvitado(email, whatsapp) {
         whatsapp: whatsapp || '',
         dateNum: selectedCoordDateNum,
         flightNum
-      })
-    });
-    const data = await resp.json();
+      });
     if (data.success) {
       alert(`✅ ${nombre} registrado como jugador #${data.playerId}. Ya puede cargar su score desde "Anotar en Vivo".`);
       closeMD();
@@ -5640,15 +5554,10 @@ async function clearSimulationData() {
     btn.innerText = "Limpiando...";
   }
   try {
-    const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
+    const res = await golfApiFetch({
         action: 'clearSimulationData',
         pin: 'golf2026'
-      })
-    });
-    const res = await resp.json();
+      });
     if (res.success) {
       alert("✅ Datos de simulación eliminados correctamente.");
       closeMD();
