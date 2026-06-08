@@ -871,15 +871,36 @@ async function cargarDesdeGoogleSheets() {
   }
 
   try {
-    console.log("⚡ Descargando datos desde Google Sheets vía Web App...");
-    const res = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'getSpreadsheetData' })
-    });
+    console.log("⚡ Descargando datos desde Google Sheets vía Web App...", APPS_SCRIPT_URL);
+    let text;
     
-    if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
-    const data = await res.json();
+    // Intentar POST primero
+    try {
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'getSpreadsheetData' })
+      });
+      text = await res.text();
+    } catch(fetchErr) {
+      console.warn("POST falló, intentando GET...", fetchErr);
+      text = null;
+    }
+    
+    // Si POST devolvió HTML o falló, intentar GET con query param
+    if (!text || text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+      console.log("⚡ POST devolvió HTML o falló. Reintentando con GET...");
+      const getUrl = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes('?') ? '&' : '?') + 'action=getSpreadsheetData';
+      const getRes = await fetch(getUrl, { method: 'GET', redirect: 'follow' });
+      text = await getRes.text();
+      
+      if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+        throw new Error('Google Apps Script no responde JSON. Verificá el deployment.');
+      }
+    }
+    
+    const data = JSON.parse(text);
     if (!data.success) throw new Error(data.error || "Error en el servidor");
     
     const payload = data.data;
