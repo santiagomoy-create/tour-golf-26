@@ -3276,7 +3276,7 @@ function buildFourballSummary(dateNum, lineNum) {
   html += '<div style="flex:1;text-align:center;">';
   html += '<div style="font-size:10px;color:var(--acc);font-weight:600;">Equipo A</div>';
   html += '<div style="font-size:12px;font-weight:600;">' + teamANames + '</div>';
-  html += '<div style="font-size:18px;font-weight:700;font-family:'DM Mono',monospace;color:' + (fb.teamAWins > fb.teamBWins ? 'var(--g8)' : 'var(--tx)') + ';">' + fb.teamAWins + '</div>';
+  html += '<div style="font-size:18px;font-weight:700;font-family:\'DM Mono\',monospace;color:' + (fb.teamAWins > fb.teamBWins ? 'var(--g8)' : 'var(--tx)') + ';">' + fb.teamAWins + '</div>';
   html += '</div>';
   html += '<div style="text-align:center;padding:0 8px;">';
   html += '<div style="font-size:10px;color:var(--txm);">vs</div>';
@@ -3285,7 +3285,7 @@ function buildFourballSummary(dateNum, lineNum) {
   html += '<div style="flex:1;text-align:center;">';
   html += '<div style="font-size:10px;color:var(--r8);font-weight:600;">Equipo B</div>';
   html += '<div style="font-size:12px;font-weight:600;">' + teamBNames + '</div>';
-  html += '<div style="font-size:18px;font-weight:700;font-family:'DM Mono',monospace;color:' + (fb.teamBWins > fb.teamAWins ? 'var(--g8)' : 'var(--tx)') + ';">' + fb.teamBWins + '</div>';
+  html += '<div style="font-size:18px;font-weight:700;font-family:\'DM Mono\',monospace;color:' + (fb.teamBWins > fb.teamAWins ? 'var(--g8)' : 'var(--tx)') + ';">' + fb.teamBWins + '</div>';
   html += '</div>';
   html += '</div></div>';
   return html;
@@ -3427,7 +3427,7 @@ function rLive(el) {
       </div>
     </div>
 
-    \${(() => {
+    ${(() => {
       if (!livePlayerId || !liveDateNum) return '';
       const fd = FD[liveDateNum];
       if (!fd || !fd.lineas || !fd.lineas.length) return '';
@@ -3679,7 +3679,7 @@ function renderLiveHolesPager() {
       ${scorecardHtml}
     </div>
 
-    \${(() => {
+    ${(() => {
       const sched = getSched(liveDateNum);
       const isApproach = sched && sched.approachHole === liveHole;
       const isLongDrive = sched && sched.longdriveHole === liveHole;
@@ -3850,7 +3850,12 @@ function setLivePuttVal(val) {
   triggerLiveSync();
 }
 
-function onLiveHcpChange(val) {
+function onLiveHcpIndexChange(val) {
+  liveHcpIndex = parseFloat(val) || 0;
+  triggerLiveSync(); // Only sync, no recalc needed
+}
+
+function onLiveHcpJuegoChange(val) {
   liveHcpJuego = parseFloat(val) || 0;
   renderLiveHolesPager();
   triggerLiveSync();
