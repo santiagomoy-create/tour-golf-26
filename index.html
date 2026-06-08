@@ -668,6 +668,31 @@ const GIDS = {
   coordinacion: "55555555" // GID real de tu pestaña 'coordinacion'
 };
 
+
+// ════════════════════════════════════════════════════
+// HELPER: Fetch universal para Google Apps Script
+// Usa GET con ?data= porque Google redirige POST→GET tras 302
+// ════════════════════════════════════════════════════
+async function golfApiFetch(payload) {
+  if (!APPS_SCRIPT_URL) throw new Error("URL de Apps Script no configurada");
+  
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload)
+  });
+  
+  if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
+  const text = await res.text();
+  
+  if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+    throw new Error('Google Apps Script devolvió HTML. Verificá el deployment.');
+  }
+  
+  return JSON.parse(text);
+}
+
 // Función para parsear CSV a objetos JSON de manera limpia y robusta
 function parseCSV(text) {
   if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
@@ -872,40 +897,10 @@ async function cargarDesdeGoogleSheets() {
 
   try {
     console.log("⚡ Descargando datos desde Google Sheets vía Web App...", APPS_SCRIPT_URL);
-    let text;
-    
-    // Intentar POST primero
-    try {
-      const res = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'getSpreadsheetData' })
-      });
-      text = await res.text();
-    } catch(fetchErr) {
-      console.warn("POST falló, intentando GET...", fetchErr);
-      text = null;
-    }
-    
-    // Si POST devolvió HTML o falló, intentar GET con query param
-    if (!text || text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
-      console.log("⚡ POST devolvió HTML o falló. Reintentando con GET...");
-      const getUrl = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes('?') ? '&' : '?') + 'action=getSpreadsheetData';
-      const getRes = await fetch(getUrl, { method: 'GET', redirect: 'follow' });
-      text = await getRes.text();
-      
-      if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
-        throw new Error('Google Apps Script no responde JSON. Verificá el deployment.');
-      }
-    }
-    
-    const data = JSON.parse(text);
+    const data = await golfApiFetch({ action: 'getSpreadsheetData' });
     if (!data.success) throw new Error(data.error || "Error en el servidor");
-    
-    const payload = data.data;
     console.log("✅ Datos descargados exitosamente vía Web App.");
-    procesarDatosPlanilla(payload);
+    procesarDatosPlanilla(data.data);
   } catch (err) {
     console.warn("⚠️ Falló descarga vía Web App. Intentando descarga CSV tradicional...", err);
     // FALLBACK A DESCARGA CSV TRADICIONAL
