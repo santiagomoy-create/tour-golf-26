@@ -672,23 +672,39 @@ const GIDS = {
 
 // ════════════════════════════════════════════════════
 // HELPER: Fetch universal para Google Apps Script
-// Usa GET con ?data= porque Google redirige POST→GET tras 302
 // ════════════════════════════════════════════════════
 async function golfApiFetch(payload) {
-  if (!APPS_SCRIPT_URL) throw new Error("URL de Apps Script no configurada");
+  // FORZAR SIEMPRE LA URL CORRECTA (ignorando localStorage si es vieja)
+  const FORCED_URL = 'https://script.google.com/macros/s/AKfycbxDf7lRnkAAGsDA3sN8Y_RK_8JeeGy2O9bJtPXQgw0E5i3L75D8fYDB6QfTjG2_ZakdkA/exec';
+  let targetUrl = APPS_SCRIPT_URL || FORCED_URL;
+  if (!targetUrl.includes('AKfy')) targetUrl = FORCED_URL;
   
-  const res = await window.fetch(APPS_SCRIPT_URL, {
-    method: 'POST',
-    redirect: 'follow',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(payload)
+  // Si la acción es muy pesada (parseCard), USAMOS POST.
+  if (payload.action === 'parseCard') {
+    const res = await window.fetch(targetUrl, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+    const text = await res.text();
+    return JSON.parse(text);
+  }
+  
+  // Para guardar/cargar datos, usamos GET con URL parameters.
+  // Esto soluciona de raíz los problemas de CORS y bloqueos del navegador
+  // al redirigir POST en Google Apps Script.
+  const payloadStr = encodeURIComponent(JSON.stringify(payload));
+  const res = await window.fetch(`${targetUrl}?data=${payloadStr}`, {
+    method: 'GET',
+    redirect: 'follow'
   });
   
   if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
   const text = await res.text();
   
   if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
-    throw new Error('Google Apps Script devolvió HTML. Verificá el deployment.');
+    throw new Error('Google devolvió HTML (posible problema de sesión múltiple o despliegue).');
   }
   
   return JSON.parse(text);
@@ -697,7 +713,7 @@ async function golfApiFetch(payload) {
 // Función para parsear CSV a objetos JSON de manera limpia y robusta
 function parseCSV(text) {
   if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
-    throw new Error("Se recibió HTML en lugar de CSV. Asegúrate de publicar la planilla en la web (Archivo > Compartir > Publicar en la web).");
+    throw new Error("Se recibió HTML en lugar de CSV. Asegúrate de publicar la planilla en la web.");
   }
   const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
   if (!lines.length) return [];
