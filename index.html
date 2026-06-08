@@ -760,7 +760,9 @@ async function cargarDesdeGoogleSheets() {
         course: s.course_id || null,
         status: s.status,
         doble: s.is_double === true || String(s.is_double).toUpperCase() === "TRUE",
-        deadline: s.confirm_deadline || null
+        deadline: s.confirm_deadline || null,
+        approachHole: s.approach_hole ? Number(s.approach_hole) : null,
+        longdriveHole: s.longdrive_hole ? Number(s.longdrive_hole) : null
       }));
     }
 
@@ -1206,22 +1208,29 @@ function getLaguneada(fn){
     let completedHolesCount = 0;
     let parOfCompleted = 0;
     
-    const bph=c.par.map((_,h)=>{
-      const nets=l.pids.map(pid=>{
+    const bph=[];
+    const bphPlayer=[];
+    c.par.forEach((_,h)=>{
+      let bestNet = 999;
+      let bestPid = null;
+      l.pids.forEach(pid=>{
         const sc=fd.scores[pid];
-        if(!sc||sc.noShow||!sc.holes) return 999;
+        if(!sc||sc.noShow||!sc.holes) return;
         const val = sc.holes[h];
-        if (val <= 0) return 999; // hoyo no jugado
+        if (val <= 0) return;
         const s=sph(sc.hcp,c.hdi);
-        return val-s[h];
-      }).filter(x=>x<999);
+        const net = val-s[h];
+        if(net < bestNet){ bestNet = net; bestPid = pid; }
+      });
       
-      if (nets.length > 0) {
+      if (bestNet < 999) {
         completedHolesCount++;
         parOfCompleted += c.par[h];
-        return Math.min(...nets);
+        bph.push(bestNet);
+        bphPlayer.push(bestPid);
       } else {
-        return 0; // Hoyo no jugado aún se visualiza como 0
+        bph.push(0);
+        bphPlayer.push(null);
       }
     });
 
@@ -1230,14 +1239,13 @@ function getLaguneada(fn){
     const vta=bph.slice(9).reduce((a,b)=>a+b,0);
     const tot=bph.reduce((a,b)=>a+b,0);
     
-    // Si no jugaron ningún hoyo, su vs Par es 0
     const vs = completedHolesCount > 0 ? (tot - parOfCompleted) : 0;
-    // Una línea está "en vivo" solo si tiene al menos un hoyo completado pero no terminó los 18
     const isLive = completedHolesCount > 0 && completedHolesCount < 18;
 
     return{
       ...l,
       bph,
+      bphPlayer,
       ida,
       vta,
       tot,
@@ -1365,9 +1373,15 @@ function ptb(pts){
   return`<span class="bdg bg">+${p}</span>`;
 }
 function stb_badge(s){const cls=s>=30?'bg':s>=20?'bb':'bgr';return`<span class="bdg ${cls}">${s}</span>`;}
-function sbdg(st){
+function sbdg(st, dateNum){
   if(st==='played') return`<span class="bdg bg">Jugada</span>`;
-  if(st==='upcoming') return`<span class="bdg ba">Próxima</span>`;
+  if(st==='upcoming'){
+    // Auto-detect "En juego": si hay scores cargados, está en juego
+    if(dateNum && FD[dateNum] && FD[dateNum].scores && Object.keys(FD[dateNum].scores).length > 0){
+      return`<span class="bdg" style="background:#3b82f6;color:#fff">En juego</span>`;
+    }
+    return`<span class="bdg ba">Próxima</span>`;
+  }
   return`<span class="bdg bgr">Pendiente</span>`;
 }
 function scClass(sc,par){
@@ -1534,7 +1548,7 @@ function rDash(el){
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--txm)">F${s.num}${s.doble?' ·2x':''}</div>
         <div style="font-size:15px;font-family:'DM Serif Display',serif">${formatDate(s.date)}</div>
         ${s.course?`<div style="font-size:11px;color:var(--txm)">${getCourse(s.course).name.split(' ').slice(-2).join(' ')}</div>`:'<div style="font-size:11px;color:var(--txm)">Cancha TBD</div>'}
-        ${sbdg(s.status)}
+        ${sbdg(s.status, s.num)}
       </div>`).join('')}
       <div class="fc-card"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--txm)">Ryder Cup</div><div style="font-size:15px;font-family:'DM Serif Display',serif">Nov 2026</div><span class="bdg bb">Viaje</span></div>
     </div>
@@ -1636,7 +1650,7 @@ function rFechas(el){
     ${SCHED.map(s=>`<div class="fc-card ${AF===s.num?'af':''}" onclick="selF(${s.num})">
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--txm)">F${s.num}${s.doble?' ·2x':''}</div>
       <div style="font-size:14px;font-family:'DM Serif Display',serif">${formatDate(s.date)}</div>
-      ${sbdg(s.status)}
+      ${sbdg(s.status, s.num)}
     </div>`).join('')}
   </div>
   <div id="FD"></div>`;
@@ -1904,7 +1918,8 @@ function rFT(mode,fn){
             const displayVal = isHolePlayed ? v : '—';
             const st=hW[h][li];
             const bg=isHolePlayed ? (st==='w'?'background:var(--g0);color:var(--g8)':st==='t'?'background:var(--gray0);color:var(--gray6)':'') : '';
-            return `<td style="${bg};font-family:'DM Mono',monospace; opacity: ${isHolePlayed ? 1 : 0.4}">${displayVal}</td>`;
+            const heroName = l.bphPlayer[h] ? (getPlayer(l.bphPlayer[h])?.short || '?') : '';
+            return `<td style="${bg};font-family:'DM Mono',monospace; opacity: ${isHolePlayed ? 1 : 0.4}" title="${heroName}">${displayVal}${isHolePlayed && st==='w' ? '<div style=\"font-size:8px;color:var(--g8);font-weight:700;margin-top:1px;font-family:Inter,sans-serif;\">' + heroName + '</div>' : ''}</td>`;
           }).join('')}
           <td><strong>${l.ida}</strong></td><td><strong>${l.vta}</strong></td><td><strong>${l.tot}</strong></td>
           <td>${l.vs>=0?'+'+l.vs:l.vs}</td><td><strong>${ptb(l.lagPts)}</strong></td>
@@ -2811,6 +2826,78 @@ function logoutAdmin() {
   nav('dashboard');
 }
 
+
+function buildAdminEventHolesConfig(dateNum) {
+  if (!IS_ADMIN) return '';
+  const sched = getSched(dateNum);
+  if (!sched) return '';
+  
+  let html = '<div style="border-top:1px solid var(--bdr); padding-top:16px; margin-top:16px;">';
+  html += '<h4 style="margin:0 0 8px 0; font-size:13px; color:var(--tx);">🎯 Eventos Especiales</h4>';
+  html += '<div style="display:flex; gap:12px; flex-wrap:wrap;">';
+  
+  // Approach hole selector
+  html += '<div style="flex:1;min-width:140px;">';
+  html += '<label style="font-size:11px; color:var(--txm); display:block; margin-bottom:4px;">Best Approach</label>';
+  html += '<select class="fc" style="font-size:13px;" id="admin-approach-hole-' + dateNum + '" onchange="saveEventHole(' + dateNum + ')">';
+  html += '<option value="">Sin definir</option>';
+  for (let i = 1; i <= 18; i++) {
+    html += '<option value="' + i + '"' + (sched.approachHole === i ? ' selected' : '') + '>Hoyo ' + i + '</option>';
+  }
+  html += '</select></div>';
+  
+  // Long drive hole selector
+  html += '<div style="flex:1;min-width:140px;">';
+  html += '<label style="font-size:11px; color:var(--txm); display:block; margin-bottom:4px;">Long Drive</label>';
+  html += '<select class="fc" style="font-size:13px;" id="admin-longdrive-hole-' + dateNum + '" onchange="saveEventHole(' + dateNum + ')">';
+  html += '<option value="">Sin definir</option>';
+  for (let i = 1; i <= 18; i++) {
+    html += '<option value="' + i + '"' + (sched.longdriveHole === i ? ' selected' : '') + '>Hoyo ' + i + '</option>';
+  }
+  html += '</select></div>';
+  
+  html += '</div></div>';
+  return html;
+}
+
+async function saveEventHole(dateNum) {
+  const approachEl = document.getElementById('admin-approach-hole-' + dateNum);
+  const longdriveEl = document.getElementById('admin-longdrive-hole-' + dateNum);
+  if (!approachEl || !longdriveEl) return;
+  
+  const approachHole = approachEl.value ? parseInt(approachEl.value) : null;
+  const longdriveHole = longdriveEl.value ? parseInt(longdriveEl.value) : null;
+  
+  // Update local SCHED
+  const sched = getSched(dateNum);
+  if (sched) {
+    sched.approachHole = approachHole;
+    sched.longdriveHole = longdriveHole;
+  }
+  
+  if (!APPS_SCRIPT_URL) return;
+  
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'updateSchedEventHoles',
+        pin: storage.get('golf_admin_pin'),
+        dateNum: dateNum,
+        approachHole: approachHole,
+        longdriveHole: longdriveHole
+      })
+    });
+    const data = await resp.json();
+    if (!data.success) {
+      console.error('Error saving event holes:', data.error);
+    }
+  } catch (err) {
+    console.error('Error saving event holes:', err);
+  }
+}
+
 function buildAdminDateManagement() {
   let html = '<div style="border-top: 1px solid var(--bdr); padding-top: 16px; margin-bottom: 20px;">';
   html += '<h4 style="margin: 0 0 10px 0; color: var(--tx);">📅 Gestión de Fechas</h4>';
@@ -2899,6 +2986,7 @@ function openAdminSettingsModal() {
           </div>
           
           ${buildAdminDateManagement()}
+          ${buildAdminEventHolesConfig(SCHED.find(s => s.status === "upcoming")?.num || SCHED[0]?.num)}
           
           <div style="border-top: 1px solid var(--bdr); padding-top: 16px; margin-bottom: 20px;">
             <h4 style="margin: 0 0 10px 0; color: var(--tx);">🧪 Zona de Pruebas & Simulación</h4>
@@ -3012,6 +3100,197 @@ async function saveAdminSettings() {
   });
 }
 
+
+// ════════════════════════════════════════════════════
+// FOURBALL 2v2
+// ════════════════════════════════════════════════════
+function getFourball(dateNum, lineNum) {
+  const fd = FD[dateNum];
+  if (!fd || !fd.scores) return null;
+  const fb = FOURBALL[dateNum] && FOURBALL[dateNum][lineNum];
+  if (!fb || !fb.teamA || !fb.teamB || fb.teamA.length < 2 || fb.teamB.length < 2) return null;
+  
+  const sched = getSched(dateNum);
+  if (!sched || !sched.course) return null;
+  const c = getCourse(sched.course);
+  if (!c) return null;
+  
+  // Calculate best ball neto per team per hole
+  function teamBestNet(pids, hole) {
+    let best = 999;
+    pids.forEach(pid => {
+      const sc = fd.scores[pid];
+      if (!sc || !sc.holes || sc.holes[hole] <= 0) return;
+      const s = sph(sc.hcp, c.hdi);
+      const net = sc.holes[hole] - s[hole];
+      if (net < best) best = net;
+    });
+    return best < 999 ? best : null;
+  }
+  
+  let teamAWins = 0, teamBWins = 0, ties = 0, holesPlayed = 0;
+  const holeResults = [];
+  
+  for (let h = 0; h < 18; h++) {
+    const aNet = teamBestNet(fb.teamA, h);
+    const bNet = teamBestNet(fb.teamB, h);
+    
+    if (aNet === null || bNet === null) {
+      holeResults.push(null);
+      continue;
+    }
+    
+    holesPlayed++;
+    if (aNet < bNet) { teamAWins++; holeResults.push('A'); }
+    else if (bNet < aNet) { teamBWins++; holeResults.push('B'); }
+    else { ties++; holeResults.push('T'); }
+  }
+  
+  const diff = teamAWins - teamBWins;
+  const remaining = 18 - holesPlayed;
+  let resultText;
+  if (holesPlayed === 0) resultText = 'Sin datos';
+  else if (diff === 0) resultText = 'All Square';
+  else if (diff > 0) resultText = 'Equipo A ' + diff + ' UP' + (remaining > 0 ? ' (' + remaining + ' restantes)' : '');
+  else resultText = 'Equipo B ' + Math.abs(diff) + ' UP' + (remaining > 0 ? ' (' + remaining + ' restantes)' : '');
+  
+  return {
+    teamA: fb.teamA,
+    teamB: fb.teamB,
+    teamAWins,
+    teamBWins,
+    ties,
+    holesPlayed,
+    holeResults,
+    resultText,
+    isLive: holesPlayed > 0 && holesPlayed < 18
+  };
+}
+
+function openFourballConfigModal(dateNum, lineNum) {
+  const fd = FD[dateNum];
+  if (!fd || !fd.lineas) return;
+  const line = fd.lineas.find(l => l.num === lineNum);
+  if (!line || line.pids.length < 4) {
+    alert('Se necesitan al menos 4 jugadores en la línea para armar un fourball.');
+    return;
+  }
+  
+  const existing = FOURBALL[dateNum] && FOURBALL[dateNum][lineNum];
+  const players = line.pids.map(pid => getPlayer(pid)).filter(Boolean);
+  
+  let html = '<div class="mo" onclick="closeM(event)">';
+  html += '<div class="md" style="max-width:420px;">';
+  html += '<div class="mh"><h3>⚔️ Armar Fourball — Línea ' + lineNum + '</h3><button class="mc-btn" onclick="closeMD()">×</button></div>';
+  html += '<div class="mb">';
+  html += '<p style="font-size:12px;color:var(--txm);margin-bottom:12px;">Arrastrá o seleccioná los jugadores para cada equipo (2 vs 2).</p>';
+  
+  // Team A
+  html += '<div style="margin-bottom:12px;"><label style="font-size:11px;font-weight:700;color:var(--acc);text-transform:uppercase;">Equipo A</label>';
+  html += '<div style="display:flex;gap:8px;margin-top:4px;">';
+  html += '<select class="fc" id="fb-a1" style="flex:1">';
+  players.forEach((p, i) => {
+    const sel = existing && existing.teamA && existing.teamA[0] === p.id ? ' selected' : (!existing && i === 0 ? ' selected' : '');
+    html += '<option value="' + p.id + '"' + sel + '>' + p.short + '</option>';
+  });
+  html += '</select>';
+  html += '<select class="fc" id="fb-a2" style="flex:1">';
+  players.forEach((p, i) => {
+    const sel = existing && existing.teamA && existing.teamA[1] === p.id ? ' selected' : (!existing && i === 1 ? ' selected' : '');
+    html += '<option value="' + p.id + '"' + sel + '>' + p.short + '</option>';
+  });
+  html += '</select></div></div>';
+  
+  // Team B
+  html += '<div style="margin-bottom:12px;"><label style="font-size:11px;font-weight:700;color:var(--r8);text-transform:uppercase;">Equipo B</label>';
+  html += '<div style="display:flex;gap:8px;margin-top:4px;">';
+  html += '<select class="fc" id="fb-b1" style="flex:1">';
+  players.forEach((p, i) => {
+    const sel = existing && existing.teamB && existing.teamB[0] === p.id ? ' selected' : (!existing && i === 2 ? ' selected' : '');
+    html += '<option value="' + p.id + '"' + sel + '>' + p.short + '</option>';
+  });
+  html += '</select>';
+  html += '<select class="fc" id="fb-b2" style="flex:1">';
+  players.forEach((p, i) => {
+    const sel = existing && existing.teamB && existing.teamB[1] === p.id ? ' selected' : (!existing && i === 3 ? ' selected' : '');
+    html += '<option value="' + p.id + '"' + sel + '>' + p.short + '</option>';
+  });
+  html += '</select></div></div>';
+  
+  html += '</div>';
+  html += '<div class="mf"><button class="btn" onclick="closeMD()">Cancelar</button>';
+  html += '<button class="btn btn-p" onclick="saveFourballConfig(' + dateNum + ',' + lineNum + ')">Guardar Fourball</button></div>';
+  html += '</div></div>';
+  
+  document.getElementById('MOD').innerHTML = html;
+}
+
+function saveFourballConfig(dateNum, lineNum) {
+  const a1 = parseInt(document.getElementById('fb-a1').value);
+  const a2 = parseInt(document.getElementById('fb-a2').value);
+  const b1 = parseInt(document.getElementById('fb-b1').value);
+  const b2 = parseInt(document.getElementById('fb-b2').value);
+  
+  const allPids = [a1, a2, b1, b2];
+  if (new Set(allPids).size !== 4) {
+    alert('Cada jugador debe estar en un solo equipo. No se puede repetir.');
+    return;
+  }
+  
+  if (!FOURBALL[dateNum]) FOURBALL[dateNum] = {};
+  FOURBALL[dateNum][lineNum] = { teamA: [a1, a2], teamB: [b1, b2] };
+  
+  // Save to localStorage
+  storage.set('golf_fourball', JSON.stringify(FOURBALL));
+  
+  // Save to backend if available
+  if (APPS_SCRIPT_URL) {
+    fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'saveFourball',
+        dateNum: dateNum,
+        lineNum: lineNum,
+        teamA: [a1, a2].join(','),
+        teamB: [b1, b2].join(',')
+      })
+    }).catch(err => console.error('Error saving fourball:', err));
+  }
+  
+  closeMD();
+  // Refresh current view
+  if (document.getElementById('live-scorecard-container')) renderLiveHolesPager();
+}
+
+function buildFourballSummary(dateNum, lineNum) {
+  const fb = getFourball(dateNum, lineNum);
+  if (!fb) return '';
+  
+  const teamANames = fb.teamA.map(pid => getPlayer(pid)?.short || '?').join(' + ');
+  const teamBNames = fb.teamB.map(pid => getPlayer(pid)?.short || '?').join(' + ');
+  
+  let html = '<div style="border-top:1px solid var(--bdr);padding-top:12px;margin-top:12px;">';
+  html += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--txm);letter-spacing:0.05em;margin-bottom:8px;">⚔️ Fourball</div>';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">';
+  html += '<div style="flex:1;text-align:center;">';
+  html += '<div style="font-size:10px;color:var(--acc);font-weight:600;">Equipo A</div>';
+  html += '<div style="font-size:12px;font-weight:600;">' + teamANames + '</div>';
+  html += '<div style="font-size:18px;font-weight:700;font-family:'DM Mono',monospace;color:' + (fb.teamAWins > fb.teamBWins ? 'var(--g8)' : 'var(--tx)') + ';">' + fb.teamAWins + '</div>';
+  html += '</div>';
+  html += '<div style="text-align:center;padding:0 8px;">';
+  html += '<div style="font-size:10px;color:var(--txm);">vs</div>';
+  html += '<div style="font-size:11px;font-weight:700;color:var(--tx);margin-top:2px;">' + fb.resultText + '</div>';
+  html += '</div>';
+  html += '<div style="flex:1;text-align:center;">';
+  html += '<div style="font-size:10px;color:var(--r8);font-weight:600;">Equipo B</div>';
+  html += '<div style="font-size:12px;font-weight:600;">' + teamBNames + '</div>';
+  html += '<div style="font-size:18px;font-weight:700;font-family:'DM Mono',monospace;color:' + (fb.teamBWins > fb.teamAWins ? 'var(--g8)' : 'var(--tx)') + ';">' + fb.teamBWins + '</div>';
+  html += '</div>';
+  html += '</div></div>';
+  return html;
+}
+
 // ════════════════════════════════════════════════════
 // CARGA EN VIVO (PLAYERS & TRUSTED SCORING)
 // ════════════════════════════════════════════════════
@@ -3020,11 +3299,21 @@ let livePlayerId = null;
 let liveDateNum = null;
 let liveHoles = new Array(18).fill(0);
 let livePutts = new Array(18).fill(0);
-let liveHcp = null;
+let liveHcpJuego = null;
+let liveHcpIndex = null;
+let liveFinished = false;
+let liveLineNum = null;
+let liveScoringForId = null; // the player we're currently scoring for (can differ from livePlayerId)
 let syncStatus = 'idle';
 let liveSyncTimeout = null;
 
 function rLive(el) {
+  // Load fourball config from localStorage
+  try {
+    const fbData = storage.get('golf_fourball');
+    if (fbData) FOURBALL = JSON.parse(fbData);
+  } catch(e) {}
+
   const activeDates = SCHED.filter(s => s.status === 'upcoming' || s.status === 'played');
   if (IS_TEST_MODE) {
     liveDateNum = 99;
@@ -3122,12 +3411,62 @@ function rLive(el) {
           </select>
         </div>
       </div>
-      <div id="live-hcp-row" style="display:${livePlayerId ? 'flex' : 'none'}; align-items:center; gap:12px; margin-top:12px; padding-top:12px; border-top:1px solid var(--bdr);">
-        <label style="font-size:13px; font-weight:600; color:var(--tx); white-space:nowrap;">⛳ Tu HCP para hoy:</label>
-        <input type="number" class="fc" id="live-hcp-input" value="${liveHcp ?? (getPlayer(livePlayerId)?.hcp || 0)}" min="0" max="54" step="0.1" style="width:80px; text-align:center; font-size:16px; font-weight:700; font-family:'DM Mono',monospace;" onchange="onLiveHcpChange(this.value)">
-        <span style="font-size:11px; color:var(--txm);">Ingresá tu handicap actualizado al día de hoy</span>
+      <div id="live-hcp-row" style="display:${livePlayerId ? 'block' : 'none'}; margin-top:12px; padding-top:12px; border-top:1px solid var(--bdr);">
+        <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end;">
+          <div style="flex:1;min-width:120px;">
+            <label style="font-size:11px; font-weight:600; color:var(--txm); text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:4px;">HCP Index</label>
+            <input type="number" class="fc" id="live-hcp-index-input" value="${liveHcpIndex ?? (getPlayer(livePlayerId)?.hcp || 0)}" min="0" max="54" step="0.1" style="width:100%; text-align:center; font-size:15px; font-weight:600; font-family:'DM Mono',monospace;" onchange="onLiveHcpIndexChange(this.value)">
+            <div style="font-size:10px; color:var(--txm); margin-top:2px;">Tu índice oficial actualizado</div>
+          </div>
+          <div style="flex:1;min-width:120px;">
+            <label style="font-size:11px; font-weight:600; color:var(--acc); text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:4px;">HCP de Juego ⛳</label>
+            <input type="number" class="fc" id="live-hcp-juego-input" value="${liveHcpJuego ?? (getPlayer(livePlayerId)?.hcp || 0)}" min="0" max="54" step="0.1" style="width:100%; text-align:center; font-size:15px; font-weight:700; font-family:'DM Mono',monospace; border-color:var(--acc);" onchange="onLiveHcpJuegoChange(this.value)">
+            <div style="font-size:10px; color:var(--acc); margin-top:2px;">Según cancha y bochas. Se usa para cálculos.</div>
+          </div>
+        </div>
       </div>
     </div>
+
+    \${(() => {
+      if (!livePlayerId || !liveDateNum) return '';
+      const fd = FD[liveDateNum];
+      if (!fd || !fd.lineas || !fd.lineas.length) return '';
+      
+      // Find player's line
+      const myLine = fd.lineas.find(l => l.pids.includes(typeof livePlayerId === 'number' ? livePlayerId : parseInt(livePlayerId)));
+      if (!myLine && !IS_ADMIN) return '<div class="alert aw" style="font-size:12px;margin-bottom:16px;">No estás asignado a ninguna línea en esta fecha. Contactá al administrador.</div>';
+      
+      if (myLine) {
+        liveLineNum = myLine.num;
+        // Build linemate tabs
+        const linemates = myLine.pids;
+        if (linemates.length <= 1) return ''; // Solo player, no tabs needed
+        
+        const scoringId = liveScoringForId || livePlayerId;
+        let tabsHtml = '<div class="card" style="margin-bottom:12px;padding:8px;">';
+        tabsHtml += '<div style="font-size:10px;color:var(--txm);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:600;">⛳ Anotando para — Línea ' + myLine.num + '</div>';
+        tabsHtml += '<div style="display:flex;gap:4px;flex-wrap:wrap;">';
+        linemates.forEach(pid => {
+          const p = getPlayer(pid);
+          const isActive = String(pid) === String(scoringId);
+          const hasScore = fd.scores && fd.scores[pid] && fd.scores[pid].holes && fd.scores[pid].holes.some(h => h > 0);
+          const finished = typeof storage !== "undefined" && storage.get("golf_live_finished_" + liveDateNum + "_" + pid) === "true";
+          const badgeStyle = isActive 
+            ? 'background:var(--acc);color:#fff;border-color:var(--acc);font-weight:700;' 
+            : hasScore 
+              ? 'background:var(--g0);color:var(--g8);border-color:var(--g1);' 
+              : 'background:var(--surf);color:var(--tx2);border-color:var(--bdr);';
+          tabsHtml += '<button style="padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid;' + badgeStyle + '" onclick="switchScoringFor(' + pid + ')">' + (p ? p.short : 'J' + pid) + (finished ? " ✅" : "") + '</button>';
+        });
+        tabsHtml += '</div></div>';
+        return tabsHtml;
+      }
+      
+      if (IS_ADMIN) {
+        return '<div style="font-size:11px;color:var(--txm);margin-bottom:8px;font-style:italic;">🔒 Admin: podés anotar para cualquier jugador.</div>';
+      }
+      return '';
+    })()}
 
     <div id="live-scorecard-container" class="hidden"></div>
   `;
@@ -3172,7 +3511,7 @@ function onLivePlayerChange(pid) {
     livePlayerId = newPid;
     liveHoles = new Array(18).fill(0);
     livePutts = new Array(18).fill(0);
-    liveHcp = hcp;
+    liveHcpJuego = hcp;
     rLive(document.getElementById('MC'));
     return;
   }
@@ -3183,13 +3522,18 @@ function onLivePlayerChange(pid) {
     const sc = fd.scores[livePlayerId];
     liveHoles = [...sc.holes];
     livePutts = sc.putts ? [...sc.putts] : new Array(18).fill(0);
-    liveHcp = sc.hcp ?? getPlayer(livePlayerId)?.hcp ?? 0;
+    liveHcpJuego = sc.hcp ?? getPlayer(livePlayerId)?.hcp ?? 0;
+    liveHcpIndex = sc.hcp_index ?? getPlayer(livePlayerId)?.hcp ?? 0;
+    liveFinished = storage.get('golf_live_finished_' + liveDateNum + '_' + livePlayerId) === 'true';
   } else {
     liveHoles = new Array(18).fill(0);
     livePutts = new Array(18).fill(0);
     const selPlayer = getPlayer(livePlayerId);
-    liveHcp = selPlayer?.hcp || 0;
+    liveHcpJuego = selPlayer?.hcp || 0;
+    liveHcpIndex = selPlayer?.hcp || 0;
+    liveFinished = storage.get('golf_live_finished_' + liveDateNum + '_' + livePlayerId) === 'true';
   }
+  liveScoringForId = livePlayerId;
   renderLiveHolesPager();
 }
 
@@ -3199,7 +3543,7 @@ function onLiveDateChange(dnum) {
   livePlayerId = null;
   liveHoles = new Array(18).fill(0);
   livePutts = new Array(18).fill(0);
-  liveHcp = null;
+  liveHcpJuego = null;
   rLive(document.getElementById('MC'));
 }
 
@@ -3252,7 +3596,8 @@ function renderLiveHolesPager() {
     return;
   }
 
-  const p = getPlayer(livePlayerId);
+  const scoringPid = liveScoringForId || livePlayerId;
+  const p = getPlayer(scoringPid);
   if (!p) return;
   
   const fd = FD[liveDateNum];
@@ -3308,7 +3653,7 @@ function renderLiveHolesPager() {
 
   const playedHolesCount = liveHoles.filter(x => x > 0).length;
   const liveGross = liveHoles.filter(x => x > 0).reduce((a, b) => a + b, 0);
-  const hcp = liveHcp ?? p.hcp ?? 0;
+  const hcp = liveHcpJuego ?? p.hcp ?? 0;
   
   const liveStb = stb(liveHoles, hcp, c.par, c.hdi);
   const proratedHcp = (hcp * playedHolesCount / 18);
@@ -3334,24 +3679,35 @@ function renderLiveHolesPager() {
       ${scorecardHtml}
     </div>
 
-    <div class="card" style="margin-bottom:20px; text-align:center; position:relative; overflow:hidden;">
-      <div style="font-size:12px; color:var(--txm); text-transform:uppercase; letter-spacing:0.08em;">Hoyo ${liveHole}</div>
+    \${(() => {
+      const sched = getSched(liveDateNum);
+      const isApproach = sched && sched.approachHole === liveHole;
+      const isLongDrive = sched && sched.longdriveHole === liveHole;
+      if (!isApproach && !isLongDrive) return '';
+      let banners = '';
+      if (isApproach) banners += '<div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:10px 16px;border-radius:8px;margin-bottom:8px;text-align:center;font-weight:700;font-size:14px;">🎯 HOYO DE BEST APPROACH</div>';
+      if (isLongDrive) banners += '<div style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;padding:10px 16px;border-radius:8px;margin-bottom:8px;text-align:center;font-weight:700;font-size:14px;">💥 HOYO DE LONG DRIVE</div>';
+      return banners;
+    })()}
+
+        <div class="card" style="margin-bottom:20px; text-align:center; position:relative; overflow:hidden;">
+      <div style="font-size:12px; color:var(--txm); text-transform:uppercase; letter-spacing:0.08em;">Hoyo ${liveHole}${liveFinished ? ' <span class=\'bdg bg\' style=\'font-size:9px;margin-left:6px;\'>FINALIZADA</span>' : ''}</div>
       <div style="font-size:14px; font-weight:500; margin-top:4px;">Par ${curPar} &nbsp;·&nbsp; Dificultad (HDI) ${curHdi}</div>
       
-      <div style="display:flex; align-items:center; justify-content:center; gap:28px; margin:24px 0;">
+      <div style="display:flex; align-items:center; justify-content:center; gap:28px; margin:24px 0;${liveFinished ? 'opacity:0.4;pointer-events:none;':''}">
         <button class="btn" style="width:54px; height:54px; border-radius:50%; font-size:24px; font-weight:600; display:flex; align-items:center; justify-content:center; border-color:var(--bdr2);" onclick="adjustLiveScore(-1)">−</button>
         <div style="font-size:64px; font-weight:600; font-family:'DM Mono',monospace; width:80px; text-align:center;">${displayScore}</div>
         <button class="btn" style="width:54px; height:54px; border-radius:50%; font-size:24px; font-weight:600; display:flex; align-items:center; justify-content:center; border-color:var(--bdr2);" onclick="adjustLiveScore(1)">+</button>
       </div>
 
-      <div style="display:flex; justify-content:center; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+      <div style="display:flex; justify-content:center; gap:8px; margin-bottom:12px; flex-wrap:wrap;${liveFinished ? 'opacity:0.4;pointer-events:none;':''}">
         <button class="btn btn-s" onclick="setLiveScoreVal(${curPar - 1})">Birdie (${curPar - 1})</button>
         <button class="btn btn-s btn-p" onclick="setLiveScoreVal(${curPar})">Par (${curPar})</button>
         <button class="btn btn-s" onclick="setLiveScoreVal(${curPar + 1})">Bogey (${curPar + 1})</button>
         ${curScore > 0 ? `<button class="btn btn-s btn-d" onclick="setLiveScoreVal(0)">Borrar</button>` : ''}
       </div>
 
-      <div style="border-top:1px solid var(--bdr); margin-top:16px; padding-top:12px;">
+      <div style="border-top:1px solid var(--bdr); margin-top:16px; padding-top:12px;${liveFinished ? 'opacity:0.4;pointer-events:none;':''}">
         <div style="display:flex; align-items:center; justify-content:center; gap:12px;">
           <span style="font-size:12px; color:var(--txm); font-weight:500; text-transform:uppercase; letter-spacing:0.05em;">Putts</span>
           <button class="btn" style="width:36px; height:36px; border-radius:50%; font-size:18px; font-weight:600; display:flex; align-items:center; justify-content:center; border-color:var(--bdr2);" onclick="adjustLivePutt(-1)">−</button>
@@ -3373,7 +3729,7 @@ function renderLiveHolesPager() {
     </div>
 
     <div class="card" style="margin-bottom:20px;">
-      <div class="ct">Tu Score Parcial (HCP ${hcp})</div>
+      <div class="ct">${scoringPid === livePlayerId ? 'Tu' : p.short + ' —'} Score Parcial (HCP ${hcp})</div>
       <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:12px; text-align:center;">
         <div style="background:var(--bg); padding:10px; border-radius:8px;">
           <div style="font-size:11px; color:var(--txm); text-transform:uppercase;">Gross Acum.</div>
@@ -3395,7 +3751,54 @@ function renderLiveHolesPager() {
         </div>
       </div>
     </div>
+
+    <div class="card" style="margin-bottom:20px;">
+      ${(() => {
+        const fd = FD[liveDateNum];
+        if (!fd || !fd.lineas || !liveLineNum) return '';
+        const myLine = fd.lineas.find(l => l.num === liveLineNum);
+        if (!myLine || myLine.pids.length < 4) return '';
+        
+        const fbConfig = FOURBALL[liveDateNum] && FOURBALL[liveDateNum][liveLineNum];
+        let fbHtml = '<div style="display:flex;justify-content:space-between;align-items:center;">';
+        fbHtml += '<span style="font-size:12px;font-weight:600;">⚔️ Fourball — Línea ' + liveLineNum + '</span>';
+        fbHtml += '<button class="btn btn-s" style="font-size:11px;" onclick="openFourballConfigModal(' + liveDateNum + ',' + liveLineNum + ')">' + (fbConfig ? '✏️ Editar' : '⚔️ Armar') + ' Equipos</button>';
+        fbHtml += '</div>';
+        fbHtml += buildFourballSummary(liveDateNum, liveLineNum);
+        return fbHtml;
+      })()}
+    </div>
+
+    ${playedHolesCount === 18 && !liveFinished ? `
+    <div class="card" style="margin-bottom:20px; text-align:center; border:2px solid var(--g8); background:var(--g0);">
+      <div style="font-size:14px; font-weight:600; color:var(--g8); margin-bottom:8px;">🏁 ¡Ronda completa! 18/18 hoyos anotados</div>
+      <button class="btn btn-p" style="width:100%; font-size:15px; padding:12px; font-weight:700; background:var(--g8); border:none;" onclick="finalizeLiveRound()">✅ Finalizar mi Ronda</button>
+    </div>` : ''}
+
+    ${liveFinished ? `
+    <div class="card" style="margin-bottom:20px; text-align:center; border:2px solid var(--g8); background:var(--g0);">
+      <div style="font-size:32px; margin-bottom:6px;">🏆</div>
+      <div style="font-size:16px; font-weight:700; color:var(--g8); margin-bottom:4px;">Ronda Finalizada</div>
+      <div style="font-size:12px; color:var(--tx2); margin-bottom:12px;">Tu tarjeta ha sido registrada exitosamente.</div>
+      <button class="btn" style="font-size:12px; padding:6px 16px;" onclick="editLiveRound()">✏️ Editar tarjeta</button>
+    </div>` : ''}
   `;
+}
+
+function finalizeLiveRound() {
+  if (!confirm('¿Confirmar finalización de tu ronda? Tu tarjeta quedará registrada.')) return;
+  liveFinished = true;
+  const finPid = liveScoringForId || livePlayerId;
+  storage.set('golf_live_finished_' + liveDateNum + '_' + finPid, 'true');
+  renderLiveHolesPager();
+  triggerLiveSync();
+}
+
+function editLiveRound() {
+  liveFinished = false;
+  const editPid = liveScoringForId || livePlayerId;
+  storage.remove('golf_live_finished_' + liveDateNum + '_' + editPid);
+  renderLiveHolesPager();
 }
 
 function setLiveHole(h) {
@@ -3448,29 +3851,61 @@ function setLivePuttVal(val) {
 }
 
 function onLiveHcpChange(val) {
-  liveHcp = parseFloat(val) || 0;
+  liveHcpJuego = parseFloat(val) || 0;
   renderLiveHolesPager();
   triggerLiveSync();
+}
+
+
+function switchScoringFor(pid) {
+  // Save current player's data first
+  if (liveScoringForId && liveScoringForId !== pid) {
+    triggerLiveSync(); // force sync current
+  }
+  
+  liveScoringForId = typeof pid === 'number' ? pid : parseInt(pid);
+  
+  // Load the target player's existing scores
+  const fd = FD[liveDateNum];
+  if (fd && fd.scores && fd.scores[liveScoringForId]) {
+    const sc = fd.scores[liveScoringForId];
+    liveHoles = [...sc.holes];
+    livePutts = sc.putts ? [...sc.putts] : new Array(18).fill(0);
+    liveHcpJuego = sc.hcp ?? getPlayer(liveScoringForId)?.hcp ?? 0;
+    liveHcpIndex = sc.hcp_index ?? getPlayer(liveScoringForId)?.hcp ?? 0;
+  } else {
+    liveHoles = new Array(18).fill(0);
+    livePutts = new Array(18).fill(0);
+    const p = getPlayer(liveScoringForId);
+    liveHcpJuego = p?.hcp || 0;
+    liveHcpIndex = p?.hcp || 0;
+  }
+  liveFinished = storage.get('golf_live_finished_' + liveDateNum + '_' + liveScoringForId) === 'true';
+  liveHole = 1;
+  renderLiveHolesPager();
 }
 
 function triggerLiveSync() {
   const fd = FD[liveDateNum];
   if (fd) {
-    if (!fd.scores[livePlayerId]) {
+    const scoringPid = liveScoringForId || livePlayerId;
+    if (!fd.scores[scoringPid]) {
       const p = getPlayer(livePlayerId);
-      fd.scores[livePlayerId] = {
-        hcp: liveHcp ?? p?.hcp ?? 0,
+      const sp = getPlayer(scoringPid);
+      fd.scores[scoringPid] = {
+        hcp: liveHcpJuego ?? sp?.hcp ?? 0,
+        hcp_index: liveHcpIndex ?? sp?.hcp ?? 0,
         holes: [...liveHoles],
         putts: [...livePutts],
         h19: false, approach: false, hoyoEnUno: false, noApp: false, noCard: false, abandon: false, noShow: false,
-        name: p?.name || 'Jugador En Vivo',
-        isReplace: p?.isReplace || false,
+        name: sp?.name || 'Jugador En Vivo',
+        isReplace: sp?.isReplace || false,
         is_official: false
       };
     } else {
-      fd.scores[livePlayerId].holes = [...liveHoles];
-      fd.scores[livePlayerId].putts = [...livePutts];
-      fd.scores[livePlayerId].is_official = false;
+      fd.scores[scoringPid].holes = [...liveHoles];
+      fd.scores[scoringPid].putts = [...livePutts];
+      fd.scores[scoringPid].is_official = false;
     }
   }
 
@@ -3493,8 +3928,9 @@ function triggerLiveSync() {
         body: JSON.stringify({
           action: 'saveLiveScore',
           dateNum: liveDateNum,
-          playerId: livePlayerId,
-          handicap: liveHcp ?? p?.hcp ?? 0,
+          playerId: scoringPid,
+          handicap: liveHcpJuego ?? p?.hcp ?? 0,
+          hcp_index: liveHcpIndex ?? p?.hcp ?? 0,
           holes: liveHoles,
           putts: livePutts
         })
@@ -3515,6 +3951,7 @@ function triggerLiveSync() {
 }
 
 let selectedCoordDateNum = null;
+let FOURBALL = {}; // { [dateNum]: { [lineNum]: { teamA: [pid1, pid2], teamB: [pid3, pid4] } } }
 let customCourseProposed = null; 
 let coActiveStep = 1;
 
