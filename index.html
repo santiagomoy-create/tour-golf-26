@@ -3537,7 +3537,8 @@ function onLivePlayerChange(pid) {
     liveFinished = storage.get('golf_live_finished_' + liveDateNum + '_' + livePlayerId) === 'true';
   }
   liveScoringForId = livePlayerId;
-  renderLiveHolesPager();
+  // Re-renderizar todo para que aparezcan la Línea y Fourball
+  rLive(document.getElementById('MC'));
 }
 
 // Coordinate mobile drawer active menu closed on navigation
@@ -3895,8 +3896,9 @@ function switchScoringFor(pid) {
 
 function triggerLiveSync() {
   const fd = FD[liveDateNum];
+  // IMPORTANTE: scoringPid debe estar en el scope de la función para que el setTimeout lo vea
+  const scoringPid = liveScoringForId || livePlayerId;
   if (fd) {
-    const scoringPid = liveScoringForId || livePlayerId;
     if (!fd.scores[scoringPid]) {
       const p = getPlayer(livePlayerId);
       const sp = getPlayer(scoringPid);
