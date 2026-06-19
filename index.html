@@ -653,7 +653,7 @@ const storage = {
 
 let IS_ADMIN = storage.get('golf_is_admin') === 'true';
 let IS_TEST_MODE = storage.get('golf_test_mode') === 'true';
-let APPS_SCRIPT_URL = storage.get('golf_apps_script_url') || 'https://script.google.com/macros/s/AKfycbxDf7lRnkAAGsDA3sN8Y_RK_8JeeGy2O9bJtPXQgw0E5i3L75D8fYDB6QfTjG2_ZakdkA/exec';
+let APPS_SCRIPT_URL = storage.get('golf_apps_script_url') || 'https://script.google.com/macros/s/AKfycbzB3wNr0HGq-JZYaqPhFPTaEPcc5iP1etLSsJV7i9-1_4DjMlYt4xldvVEzSOJ2xg/exec';
 const SPREADSHEET_ID = "1h_R6k50cU3W9e8E-53nxmpmCHd771uTh2erYE5lw5pk"; // Ingresa el ID de tu Google Sheet publicado
 let COORDINATION = [];
 let INVITADOS_SUGERIDOS = [];
@@ -675,7 +675,7 @@ const GIDS = {
 // ════════════════════════════════════════════════════
 async function golfApiFetch(payload) {
   // Siempre usamos la URL oficial actual
-  const FORCED_URL = 'https://script.google.com/macros/s/AKfycbxDf7lRnkAAGsDA3sN8Y_RK_8JeeGy2O9bJtPXQgw0E5i3L75D8fYDB6QfTjG2_ZakdkA/exec';
+  const FORCED_URL = 'https://script.google.com/macros/s/AKfycbzB3wNr0HGq-JZYaqPhFPTaEPcc5iP1etLSsJV7i9-1_4DjMlYt4xldvVEzSOJ2xg/exec';
   let targetUrl = FORCED_URL;
   
   if (APPS_SCRIPT_URL && APPS_SCRIPT_URL.includes('AKfy')) {
@@ -2054,15 +2054,21 @@ function rFT(mode,fn){
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--txm);letter-spacing:0.05em;margin-bottom:8px;">Resultado hoyo por hoyo</div>
           <div style="display:flex;flex-wrap:wrap;gap:3px;">
             ${fb.holeResults.map((r, i) => {
-              let bg = 'var(--gray1)'; let color = 'var(--txm)'; let label = '—';
-              if (r === 'A') { bg = 'var(--acc)'; color = '#fff'; label = 'A'; }
-              else if (r === 'B') { bg = 'var(--r8)'; color = '#fff'; label = 'B'; }
-              else if (r === 'T') { bg = 'var(--gray3)'; color = '#fff'; label = '=';
-              }
-              return `<div style="width:30px;height:36px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:4px;background:${bg};color:${color};font-size:11px;font-weight:700;font-family:'DM Mono',monospace;">
-                <div style="font-size:8px;font-weight:400;opacity:0.7;">${i+1}</div>
-                ${label}
-              </div>`;
+              const hero = fb.holeHeroes[i];
+              let bg = 'var(--gray1)', clr = 'var(--txm)', label = '—', heroName = '';
+              if (r === 'A') { bg = 'var(--acc)'; clr = '#fff'; label = 'A'; heroName = hero ? hero.heroName : ''; }
+              else if (r === 'B') { bg = 'var(--r8)'; clr = '#fff'; label = 'B'; heroName = hero ? hero.heroName : ''; }
+              else if (r === 'T') { bg = 'var(--gray3)'; clr = '#fff'; label = '='; }
+              const heroDiv = heroName 
+                ? '<div style="font-size:7px;font-weight:600;color:' + (r === 'A' ? 'var(--acc)' : 'var(--r8)') + ';white-space:nowrap;max-width:34px;overflow:hidden;text-overflow:ellipsis;" title="' + heroName + '">' + heroName + '</div>' 
+                : '';
+              return '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">'
+                + '<div style="width:30px;height:36px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:4px;background:' + bg + ';color:' + clr + ';font-size:11px;font-weight:700;font-family:\'DM Mono\',monospace;">'
+                + '<div style="font-size:8px;font-weight:400;opacity:0.7;">' + (i+1) + '</div>'
+                + label
+                + '</div>'
+                + heroDiv
+                + '</div>';
             }).join('')}
           </div>
           <div style="display:flex;gap:12px;margin-top:8px;font-size:10px;color:var(--txm);">
@@ -2070,6 +2076,39 @@ function rFT(mode,fn){
             <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--r8);margin-right:3px;vertical-align:middle;"></span>Eq. B</span>
             <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--gray3);margin-right:3px;vertical-align:middle;"></span>Empate</span>
           </div>
+        </div>
+        
+        <div style="padding:0 16px 16px;">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--txm);letter-spacing:0.05em;margin-bottom:6px;">Neto por jugador (hoyo a hoyo)</div>
+          <div class="card sct" style="margin:0;"><table>
+            <thead>
+              <tr><th>Jugador</th><th>Eq.</th>${Array.from({length:18},(_,i)=>'<th>'+(i+1)+'</th>').join('')}</tr>
+            </thead>
+            <tbody>
+              ${[...fb.teamA, ...fb.teamB].map(pid => {
+                const p = getPlayer(pid);
+                const isTeamA = fb.teamA.includes(pid);
+                const sc = fd2.scores[pid];
+                if (!sc || !sc.holes) return '';
+                const strokes = sph(sc.hcp, c.hdi);
+                const teamLabel = isTeamA ? 'A' : 'B';
+                const teamClr = isTeamA ? 'var(--acc)' : 'var(--r8)';
+                let row = '<tr>';
+                row += '<td><strong>' + (p ? p.short : '?') + '</strong><br><span style="font-size:9px;color:var(--txm)">hcp ' + sc.hcp + '</span></td>';
+                row += '<td><span style="font-size:9px;font-weight:700;color:' + teamClr + ';">' + teamLabel + '</span></td>';
+                sc.holes.forEach((h, i) => {
+                  if (h <= 0) { row += '<td style="color:var(--txm)">—</td>'; return; }
+                  const net = h - strokes[i];
+                  const hero = fb.holeHeroes[i];
+                  const wonHole = hero && ((hero.winner === 'A' && isTeamA && hero.aPid === pid) || (hero.winner === 'B' && !isTeamA && hero.bPid === pid));
+                  row += '<td style="font-family:\'DM Mono\',monospace;font-size:11px;' + (wonHole ? 'font-weight:700;color:var(--g8);' : '') + '">' + net + (wonHole ? '★' : '') + '</td>';
+                });
+                row += '</tr>';
+                return row;
+              }).join('')}
+            </tbody>
+          </table></div>
+          <div style="font-size:9px;color:var(--txm);margin-top:4px;">★ = mejor neto del equipo que ganó el hoyo</div>
         </div>
       </div>`;
     });
@@ -3238,35 +3277,51 @@ function getFourball(dateNum, lineNum) {
   const c = getCourse(sched.course);
   if (!c) return null;
   
-  // Calculate best ball neto per team per hole
+  // Calculate best ball neto per team per hole — returns {net, pid}
   function teamBestNet(pids, hole) {
     let best = 999;
+    let bestPid = null;
     pids.forEach(pid => {
       const sc = fd.scores[pid];
       if (!sc || !sc.holes || sc.holes[hole] <= 0) return;
       const s = sph(sc.hcp, c.hdi);
       const net = sc.holes[hole] - s[hole];
-      if (net < best) best = net;
+      if (net < best) { best = net; bestPid = pid; }
     });
-    return best < 999 ? best : null;
+    return best < 999 ? { net: best, pid: bestPid } : null;
   }
   
   let teamAWins = 0, teamBWins = 0, ties = 0, holesPlayed = 0;
   const holeResults = [];
+  const holeHeroes = []; // {winner:'A'|'B'|'T'|null, heroPid, heroName, heroNet, aNet, bNet, aPid, bPid}
   
   for (let h = 0; h < 18; h++) {
-    const aNet = teamBestNet(fb.teamA, h);
-    const bNet = teamBestNet(fb.teamB, h);
+    const aRes = teamBestNet(fb.teamA, h);
+    const bRes = teamBestNet(fb.teamB, h);
     
-    if (aNet === null || bNet === null) {
+    if (aRes === null || bRes === null) {
       holeResults.push(null);
+      holeHeroes.push(null);
       continue;
     }
     
     holesPlayed++;
-    if (aNet < bNet) { teamAWins++; holeResults.push('A'); }
-    else if (bNet < aNet) { teamBWins++; holeResults.push('B'); }
-    else { ties++; holeResults.push('T'); }
+    const aName = getPlayer(aRes.pid)?.short || '?';
+    const bName = getPlayer(bRes.pid)?.short || '?';
+    
+    if (aRes.net < bRes.net) { 
+      teamAWins++; 
+      holeResults.push('A'); 
+      holeHeroes.push({ winner: 'A', heroPid: aRes.pid, heroName: aName, heroNet: aRes.net, aPid: aRes.pid, aName, aNet: aRes.net, bPid: bRes.pid, bName, bNet: bRes.net });
+    } else if (bRes.net < aRes.net) { 
+      teamBWins++; 
+      holeResults.push('B'); 
+      holeHeroes.push({ winner: 'B', heroPid: bRes.pid, heroName: bName, heroNet: bRes.net, aPid: aRes.pid, aName, aNet: aRes.net, bPid: bRes.pid, bName, bNet: bRes.net });
+    } else { 
+      ties++; 
+      holeResults.push('T'); 
+      holeHeroes.push({ winner: 'T', aPid: aRes.pid, aName, aNet: aRes.net, bPid: bRes.pid, bName, bNet: bRes.net });
+    }
   }
   
   const diff = teamAWins - teamBWins;
@@ -3285,6 +3340,7 @@ function getFourball(dateNum, lineNum) {
     ties,
     holesPlayed,
     holeResults,
+    holeHeroes,
     resultText,
     isLive: holesPlayed > 0 && holesPlayed < 18
   };
