@@ -860,6 +860,23 @@ async function cargarDesdeGoogleSheets() {
       TESORERIA = [];
     }
 
+    // 4d. Cargar Fourballs desde Google Sheets
+    const fourballRaw = payload.fourball || [];
+    if (fourballRaw.length) {
+      fourballRaw.forEach(fb => {
+        const dn = Number(fb.date_num);
+        const ln = Number(fb.line_num);
+        const tA = String(fb.team_a || '').split(',').map(Number).filter(x => !isNaN(x) && x > 0);
+        const tB = String(fb.team_b || '').split(',').map(Number).filter(x => !isNaN(x) && x > 0);
+        if (tA.length >= 2 && tB.length >= 2) {
+          if (!FOURBALL[dn]) FOURBALL[dn] = {};
+          FOURBALL[dn][ln] = { teamA: tA, teamB: tB };
+        }
+      });
+      // Guardar en localStorage como backup
+      storage.set('golf_fourball', JSON.stringify(FOURBALL));
+    }
+
     // 5. Reconstruir FD (Resultados y scores por fecha)
     const nuevoFD = {};
     SCHED.forEach(s => {
@@ -1707,11 +1724,17 @@ function rFD(n){
   const el=document.getElementById('FD');
   const fd=FD[n];
   if(!fd){el.innerHTML=`<div class="alert ai">Sin datos para fecha ${n}. <button class="btn btn-s btn-p" onclick="nav('carga')" style="margin-left:10px">Cargar →</button></div>`;return;}
+  // Verificar si hay fourballs configurados para esta fecha
+  const hasFourballs = FOURBALL[n] && Object.keys(FOURBALL[n]).some(ln => {
+    const fbCfg = FOURBALL[n][ln];
+    return fbCfg && fbCfg.teamA && fbCfg.teamB && fbCfg.teamA.length >= 2 && fbCfg.teamB.length >= 2;
+  });
   el.innerHTML=`
   <div class="tabs">
     <div class="tab active" onclick="swFT('stb',this,${n})">⭐ Stableford</div>
     <div class="tab" onclick="swFT('medal',this,${n})">🏅 Medal</div>
     <div class="tab" onclick="swFT('lag',this,${n})">⛳ Laguneada</div>
+    ${hasFourballs ? `<div class="tab" onclick="swFT('fourball',this,${n})">⚔️ Fourball</div>` : ''}
     <div class="tab" onclick="swFT('tarjetas',this,${n})">📋 Tarjetas</div>
   </div>
   <div id="FTC"></div>`;
@@ -1959,6 +1982,99 @@ function rFT(mode,fn){
         </tr>`;
       }).join('')}</tbody>
     </table></div>`;
+
+  } else if(mode==='fourball'){
+    // Fourball 2v2 Match Play por línea
+    const fd2 = FD[fn];
+    if (!fd2 || !fd2.lineas) { el.innerHTML=`<div class="alert ai">Sin datos de líneas.</div>`; return; }
+    const fbLines = fd2.lineas.filter(l => FOURBALL[fn] && FOURBALL[fn][l.num]);
+    if (!fbLines.length) { el.innerHTML=`<div class="alert ai">No hay fourballs configurados para esta fecha. Podés armarlos desde "Anotar en Vivo".</div>`; return; }
+    
+    let fbHtml = `<div class="alert ai" style="font-size:12px">Fourball Best Ball (Match Play): cada equipo de 2 jugadores usa el mejor neto del hoyo. Gana el equipo que gane más hoyos.</div>`;
+    
+    fbLines.forEach(line => {
+      const fb = getFourball(fn, line.num);
+      if (!fb) return;
+      
+      const teamANames = fb.teamA.map(pid => getPlayer(pid)?.short || '?').join(' & ');
+      const teamBNames = fb.teamB.map(pid => getPlayer(pid)?.short || '?').join(' & ');
+      const isAWinning = fb.teamAWins > fb.teamBWins;
+      const isBWinning = fb.teamBWins > fb.teamAWins;
+      const isTied = fb.teamAWins === fb.teamBWins;
+      
+      // Match status text
+      let matchStatus = '';
+      let matchColor = 'var(--txm)';
+      if (fb.holesPlayed === 0) { matchStatus = 'Sin datos'; }
+      else if (fb.holesPlayed === 18) {
+        if (isTied) { matchStatus = 'All Square — Empate'; matchColor = 'var(--a6)'; }
+        else {
+          const winner = isAWinning ? teamANames : teamBNames;
+          const diff = Math.abs(fb.teamAWins - fb.teamBWins);
+          matchStatus = `${diff}&UP — ${winner} ganan`;
+          matchColor = 'var(--g8)';
+        }
+      } else {
+        const remaining = 18 - fb.holesPlayed;
+        if (isTied) { matchStatus = `All Square · ${remaining} hoyos restantes`; matchColor = 'var(--a6)'; }
+        else {
+          const diff = Math.abs(fb.teamAWins - fb.teamBWins);
+          const leading = isAWinning ? teamANames : teamBNames;
+          matchStatus = `${leading} ${diff} UP · ${remaining} restantes`;
+          matchColor = '#10B981';
+        }
+      }
+      
+      // Build the match card
+      fbHtml += `
+      <div class="card" style="margin-bottom:20px; overflow:hidden;">
+        <div style="padding:16px 20px; background:linear-gradient(135deg, var(--bg2) 0%, var(--surf) 100%); border-bottom:1px solid var(--bdr);">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--txm);margin-bottom:8px;">⚔️ Fourball Match Play — Línea ${line.num}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div style="flex:1;text-align:center;">
+              <div style="font-size:10px;font-weight:600;color:var(--acc);text-transform:uppercase;letter-spacing:0.05em;">Equipo A</div>
+              <div style="font-size:14px;font-weight:700;margin-top:2px;">${teamANames}</div>
+              <div style="font-size:28px;font-weight:800;font-family:'DM Mono',monospace;color:${isAWinning ? 'var(--g8)' : isBWinning ? 'var(--r8)' : 'var(--tx)'};margin-top:4px;">${fb.teamAWins}</div>
+            </div>
+            <div style="text-align:center;padding:0 8px;">
+              <div style="font-size:20px;font-weight:300;color:var(--txm);">vs</div>
+              <div style="font-size:10px;color:var(--txm);margin-top:2px;">${fb.holesPlayed}/18</div>
+            </div>
+            <div style="flex:1;text-align:center;">
+              <div style="font-size:10px;font-weight:600;color:var(--r8);text-transform:uppercase;letter-spacing:0.05em;">Equipo B</div>
+              <div style="font-size:14px;font-weight:700;margin-top:2px;">${teamBNames}</div>
+              <div style="font-size:28px;font-weight:800;font-family:'DM Mono',monospace;color:${isBWinning ? 'var(--g8)' : isAWinning ? 'var(--r8)' : 'var(--tx)'};margin-top:4px;">${fb.teamBWins}</div>
+            </div>
+          </div>
+          <div style="text-align:center;margin-top:10px;font-size:13px;font-weight:600;color:${matchColor};">${matchStatus}</div>
+          ${fb.ties > 0 ? `<div style="text-align:center;font-size:11px;color:var(--txm);margin-top:2px;">${fb.ties} hoyo${fb.ties > 1 ? 's' : ''} empatado${fb.ties > 1 ? 's' : ''}</div>` : ''}
+        </div>
+        
+        <div style="padding:12px 16px;">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--txm);letter-spacing:0.05em;margin-bottom:8px;">Resultado hoyo por hoyo</div>
+          <div style="display:flex;flex-wrap:wrap;gap:3px;">
+            ${fb.holeResults.map((r, i) => {
+              let bg = 'var(--gray1)'; let color = 'var(--txm)'; let label = '—';
+              if (r === 'A') { bg = 'var(--acc)'; color = '#fff'; label = 'A'; }
+              else if (r === 'B') { bg = 'var(--r8)'; color = '#fff'; label = 'B'; }
+              else if (r === 'T') { bg = 'var(--gray3)'; color = '#fff'; label = '=';
+              }
+              return `<div style="width:30px;height:36px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:4px;background:${bg};color:${color};font-size:11px;font-weight:700;font-family:'DM Mono',monospace;">
+                <div style="font-size:8px;font-weight:400;opacity:0.7;">${i+1}</div>
+                ${label}
+              </div>`;
+            }).join('')}
+          </div>
+          <div style="display:flex;gap:12px;margin-top:8px;font-size:10px;color:var(--txm);">
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--acc);margin-right:3px;vertical-align:middle;"></span>Eq. A</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--r8);margin-right:3px;vertical-align:middle;"></span>Eq. B</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--gray3);margin-right:3px;vertical-align:middle;"></span>Empate</span>
+          </div>
+        </div>
+      </div>`;
+    });
+    
+    el.innerHTML = fbHtml;
 
   } else {
     // Tarjetas crudas
