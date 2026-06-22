@@ -1328,7 +1328,11 @@ function getAccum(){
       l.pids.forEach(pid=>{if(map[pid]) map[pid].lag+=l.lagPts;});
     });
   });
-  Object.values(map).forEach(r=>{r.mixed=+(r.stb+r.lag).toFixed(1);});
+  Object.values(map).forEach(r=>{
+    r.mixed=+(r.stb+r.lag).toFixed(1);
+    // Medal: promedio de neto por fecha (menor es mejor). Así no penaliza a quien jugó más fechas.
+    r.medalAvg = r.fechas > 0 ? +(r.medal / r.fechas).toFixed(2) : 9999;
+  });
   return Object.values(map).filter(x=>x.fechas>0);
 }
 
@@ -1536,7 +1540,7 @@ function closeMD(){document.getElementById('MOD').innerHTML='';}
 function rDash(el){
   const all=getAccum();
   const lS=[...all].sort((a,b)=>b.stb-a.stb)[0];
-  const lM=[...all].filter(r=>r.fechas>0).sort((a,b)=>a.medal-b.medal)[0];
+  const lM=[...all].filter(r=>r.fechas>0).sort((a,b)=>a.medalAvg-b.medalAvg)[0];
   const lX=[...all].sort((a,b)=>b.mixed-a.mixed)[0];
   
   const playedDates = Object.keys(FD).map(Number).sort((a,b)=>b-a);
@@ -1557,7 +1561,7 @@ function rDash(el){
   <div class="mg">
     <div class="mc"><div class="ml">Fechas jugadas</div><div class="mv">${SCHED.filter(s => s.status === 'played' && s.num !== 99).length}<span style="font-size:16px;color:var(--txm)"> / 6</span></div><div class="ms">Próxima: ${nextDateStr}</div></div>
     <div class="mc"><div class="ml">Líder Stableford</div><div class="mv" style="font-size:18px">${lS?.p.short||'—'}</div><div class="ms">${lS?lS.stb+' pts acum.':''}</div></div>
-    <div class="mc"><div class="ml">Líder Medal</div><div class="mv" style="font-size:18px">${lM?.p.short||'—'}</div><div class="ms">${lM?lM.medal+' pts acum.':''}</div></div>
+    <div class="mc"><div class="ml">Líder Medal</div><div class="mv" style="font-size:18px">${lM?.p.short||'—'}</div><div class="ms">${lM?lM.medalAvg+' neto prom.':''}</div></div>
     <div class="mc"><div class="ml">Líder Mixto</div><div class="mv" style="font-size:18px">${lX?.p.short||'—'}</div><div class="ms">${lX?lX.mixed+' pts acum.':''}</div></div>
   </div>
   <div class="g2" style="margin-bottom:24px">
@@ -1631,10 +1635,10 @@ function renderRT(mode){
   const k=keyMap[mode];
   // En Laguneada mostrar a todos (incluidos invitados). En los demás, excluir invitados.
   const filtered = mode === 'lag' ? all : all.filter(r => !r.p.isInvitado);
-  const sorted=mode==='medal'?[...filtered].sort((a,b)=>a[k]-b[k]):[...filtered].sort((a,b)=>b[k]-a[k]);
+  const sorted=mode==='medal'?[...filtered].sort((a,b)=>a.medalAvg-b.medalAvg):[...filtered].sort((a,b)=>b[k]-a[k]);
   const descMap={
     stb:'Stableford: Eagle=4 · Birdie=3 · Par=2 · Bogey=1 · Doble+=0 — ventaja hoyo por hoyo. Se acumula el score STB real de cada fecha. El que más puntos sume en las 6 fechas gana.',
-    medal:'Medal: se acumula el score neto real de cada fecha (gross − hándicap). Menor total gana, igual que el stroke play clásico.',
+    medal:'Medal: promedio de score neto por fecha jugada (gross − hándicap). Menor promedio gana. A partir de 5 fechas jugadas, se toman las mejores 4.',
     lag:'Laguneada: línea ganadora +6pts · 2da +3pts · 3ra 0pts — suma a cada jugador de la línea por fecha.',
     mixed:'Mixto: suma de puntos Stableford reales + puntos Laguneada acumulados.'
   };
@@ -1670,7 +1674,7 @@ function renderRT(mode){
       return`<tr class="${i<3?'hl':''}">
         <td>${pb(i+1)}</td><td><strong>${r.p.name}</strong></td>
         <td>${r.p.hcp!=null?r.p.hcp:'TBD'}</td><td>${r.fechas}</td>
-        ${cells}<td>${mode==='medal'?ptbMedal(r[k]):ptb(r[k])}</td>
+        ${cells}<td>${mode==='medal' ? ptbMedal(r.medalAvg) + '<span style="font-size:9px;color:var(--txm);margin-left:3px;">prom</span>' : ptb(r[k])}</td>
       </tr>`;
     }).join('')}</tbody>
   </table></div>
@@ -1724,6 +1728,8 @@ function rFD(n){
   const el=document.getElementById('FD');
   const fd=FD[n];
   if(!fd){el.innerHTML=`<div class="alert ai">Sin datos para fecha ${n}. <button class="btn btn-s btn-p" onclick="nav('carga')" style="margin-left:10px">Cargar →</button></div>`;return;}
+  // Cargar fourball desde localStorage por si aún no llegó del backend
+  try { const fb=storage.get('golf_fourball'); if(fb) FOURBALL=JSON.parse(fb); } catch(e){}
   // Verificar si hay fourballs configurados para esta fecha
   const hasFourballs = FOURBALL[n] && Object.keys(FOURBALL[n]).some(ln => {
     const fbCfg = FOURBALL[n][ln];
