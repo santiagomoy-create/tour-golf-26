@@ -863,11 +863,20 @@ async function cargarDesdeGoogleSheets() {
     // 4d. Cargar Fourballs desde Google Sheets
     const fourballRaw = payload.fourball || [];
     if (fourballRaw.length) {
+      // Helper: convierte "5,10" o el número 5.1 (mal interpretado por Sheets) a array de IDs
+      const parseTeam = (val) => {
+        if (val === null || val === undefined || val === '') return [];
+        const str = String(val);
+        // Si Sheets lo convirtió a decimal (ej: 7.11 en vez de "7,11"), lo reconvertimos
+        // reemplazando el punto por coma
+        const normalized = str.replace('.', ',');
+        return normalized.split(',').map(Number).filter(x => !isNaN(x) && x > 0);
+      };
       fourballRaw.forEach(fb => {
         const dn = Number(fb.date_num);
         const ln = Number(fb.line_num);
-        const tA = String(fb.team_a || '').split(',').map(Number).filter(x => !isNaN(x) && x > 0);
-        const tB = String(fb.team_b || '').split(',').map(Number).filter(x => !isNaN(x) && x > 0);
+        const tA = parseTeam(fb.team_a);
+        const tB = parseTeam(fb.team_b);
         if (tA.length >= 2 && tB.length >= 2) {
           if (!FOURBALL[dn]) FOURBALL[dn] = {};
           FOURBALL[dn][ln] = { teamA: tA, teamB: tB };
