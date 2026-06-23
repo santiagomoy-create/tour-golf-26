@@ -860,7 +860,8 @@ async function cargarDesdeGoogleSheets() {
       TESORERIA = [];
     }
 
-    // 4d. Cargar Fourballs desde Google Sheets
+    // 4d. Cargar Fourballs desde Google Sheets (reemplaza cualquier dato previo en memoria/localStorage)
+    FOURBALL = {}; // reset limpio antes de cargar desde backend
     const fourballRaw = payload.fourball || [];
     if (fourballRaw.length) {
       // Helper: convierte "5,10" o el número 5.1 (mal interpretado por Sheets) a array de IDs
@@ -1737,8 +1738,6 @@ function rFD(n){
   const el=document.getElementById('FD');
   const fd=FD[n];
   if(!fd){el.innerHTML=`<div class="alert ai">Sin datos para fecha ${n}. <button class="btn btn-s btn-p" onclick="nav('carga')" style="margin-left:10px">Cargar →</button></div>`;return;}
-  // Cargar fourball desde localStorage por si aún no llegó del backend
-  try { const fb=storage.get('golf_fourball'); if(fb) FOURBALL=JSON.parse(fb); } catch(e){}
   // Verificar si hay fourballs configurados para esta fecha
   const hasFourballs = FOURBALL[n] && Object.keys(FOURBALL[n]).some(ln => {
     const fbCfg = FOURBALL[n][ln];
@@ -4143,7 +4142,7 @@ function triggerLiveSync() {
 }
 
 let selectedCoordDateNum = null;
-let FOURBALL = {}; // { [dateNum]: { [lineNum]: { teamA: [pid1, pid2], teamB: [pid3, pid4] } } }
+let FOURBALL = (() => { try { const d=storage.get('golf_fourball'); return d ? JSON.parse(d) : {}; } catch(e){ return {}; } })(); // { [dateNum]: { [lineNum]: { teamA, teamB } } }
 let customCourseProposed = null; 
 let coActiveStep = 1;
 
