@@ -2093,10 +2093,24 @@ function rFT(mode,fn){
         </div>
         
         <div style="padding:0 16px 16px;">
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--txm);letter-spacing:0.05em;margin-bottom:6px;">Neto por jugador (hoyo a hoyo)</div>
-          <div class="card sct" style="margin:0;"><table>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--txm);letter-spacing:0.05em;margin-bottom:6px;">Detalle hoyo a hoyo</div>
+          <div style="overflow-x:auto;">
+          <div class="card sct" style="margin:0;"><table style="min-width:700px;">
             <thead>
-              <tr><th>Jugador</th><th>Eq.</th>${Array.from({length:18},(_,i)=>'<th>'+(i+1)+'</th>').join('')}</tr>
+              <tr>
+                <th style="min-width:90px;">Jugador</th>
+                <th>Eq.</th>
+                <th>HCP</th>
+                ${Array.from({length:18},(_,i)=>'<th style="text-align:center;min-width:36px;">'+(i+1)+'</th>').join('')}
+              </tr>
+              <tr style="background:var(--gray0);">
+                <td colspan="3" style="font-size:10px;font-weight:600;color:var(--txm);">Par</td>
+                ${c.par.map(p=>'<td style="text-align:center;font-size:10px;font-weight:600;color:var(--txm);">'+p+'</td>').join('')}
+              </tr>
+              <tr style="background:var(--gray0);">
+                <td colspan="3" style="font-size:10px;font-weight:600;color:var(--txm);">HDI</td>
+                ${c.hdi.map(h=>'<td style="text-align:center;font-size:10px;color:var(--txm);">'+h+'</td>').join('')}
+              </tr>
             </thead>
             <tbody>
               ${[...fb.teamA, ...fb.teamB].map(pid => {
@@ -2108,21 +2122,31 @@ function rFT(mode,fn){
                 const teamLabel = isTeamA ? 'A' : 'B';
                 const teamClr = isTeamA ? 'var(--acc)' : 'var(--r8)';
                 let row = '<tr>';
-                row += '<td><strong>' + (p ? p.short : '?') + '</strong><br><span style="font-size:9px;color:var(--txm)">hcp ' + sc.hcp + '</span></td>';
-                row += '<td><span style="font-size:9px;font-weight:700;color:' + teamClr + ';">' + teamLabel + '</span></td>';
+                row += '<td><strong>' + (p ? p.short : '?') + '</strong></td>';
+                row += '<td><span style="font-size:10px;font-weight:700;color:' + teamClr + ';">' + teamLabel + '</span></td>';
+                row += '<td style="text-align:center;font-size:10px;color:var(--txm);">' + sc.hcp + '</td>';
                 sc.holes.forEach((h, i) => {
-                  if (h <= 0) { row += '<td style="color:var(--txm)">—</td>'; return; }
+                  if (h <= 0) { row += '<td style="text-align:center;color:var(--txm);">—</td>'; return; }
                   const net = h - strokes[i];
                   const hero = fb.holeHeroes[i];
                   const wonHole = hero && ((hero.winner === 'A' && isTeamA && hero.aPid === pid) || (hero.winner === 'B' && !isTeamA && hero.bPid === pid));
-                  row += '<td style="font-family:\'DM Mono\',monospace;font-size:11px;' + (wonHole ? 'font-weight:700;color:var(--g8);' : '') + '">' + net + (wonHole ? '★' : '') + '</td>';
+                  const strokesGiven = strokes[i];
+                  // Celda: gross arriba, neto abajo
+                  const grossStyle = 'font-size:10px;color:var(--txm);line-height:1.2;';
+                  const netStyle = 'font-size:12px;font-weight:' + (wonHole ? '800' : '600') + ';color:' + (wonHole ? 'var(--g8)' : 'var(--tx)') + ';line-height:1.2;';
+                  const bgStyle = wonHole ? 'background:rgba(16,185,129,0.1);border-radius:4px;' : '';
+                  row += '<td style="text-align:center;padding:3px 2px;' + bgStyle + '">'
+                    + '<div style="' + grossStyle + '">' + h + (strokesGiven > 0 ? '<sup style="font-size:7px;color:var(--acc);">-'+strokesGiven+'</sup>' : '') + '</div>'
+                    + '<div style="' + netStyle + '">' + net + (wonHole ? ' ★' : '') + '</div>'
+                    + '</td>';
                 });
                 row += '</tr>';
                 return row;
               }).join('')}
             </tbody>
           </table></div>
-          <div style="font-size:9px;color:var(--txm);margin-top:4px;">★ = mejor neto del equipo que ganó el hoyo</div>
+          </div>
+          <div style="font-size:9px;color:var(--txm);margin-top:4px;">Gross<sup style="font-size:7px;color:var(--acc);">-N</sup> = golpes brutos con descuento indicado · <strong style="color:var(--g8);">Neto ★</strong> = mejor neto del equipo ganador del hoyo</div>
         </div>
       </div>`;
     });
