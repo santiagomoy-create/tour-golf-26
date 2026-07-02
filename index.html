@@ -904,8 +904,8 @@ async function cargarDesdeGoogleSheets() {
       const scoresForDate = scoresRaw.filter(sc => Number(sc.date_num) === s.num);
       
       if (s.status === "played" || flightsForDate.length > 0 || scoresForDate.length > 0 || s.num === 99) {
-        const lineas = flightsForDate.map(f => ({
-          num: Number(f.flight_num),
+        const lineas = flightsForDate.map((f, idx) => ({
+          num: (Number(f.flight_num) || Number(f.line_num) || (idx + 1)),
           hora: f.tee_time,
           pids: String(f.player_ids || '').split(",").map(Number).filter(x => !isNaN(x) && x > 0)
         }));
