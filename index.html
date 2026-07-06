@@ -3451,10 +3451,7 @@ function getFourball(dateNum, lineNum) {
   const fb = FOURBALL[dateNum] && FOURBALL[dateNum][lineNum];
   if (!fb || !fb.teamA || !fb.teamB || fb.teamA.length < 2 || fb.teamB.length < 2) return null;
   
-  const sched = getSched(dateNum);
-  if (!sched || !sched.course) return null;
-  const c = getCourse(sched.course);
-  if (!c) return null;
+  const c = getCourse(fd.course); // usa mismo fallback que rFT (COURSES[0] si no hay cancha)
   
   // Calculate best ball neto per team per hole — returns {net, pid}
   function teamBestNet(pids, hole) {
