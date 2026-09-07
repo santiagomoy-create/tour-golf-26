@@ -927,7 +927,8 @@ async function cargarDesdeGoogleSheets() {
             is_official: sc.is_official === true || String(sc.is_official).toUpperCase() === "TRUE",
             isReplace: (player && player.isInvitado) || sc.is_replace === true || String(sc.is_replace || '').toUpperCase() === "TRUE",
             name: sc.player_name || (player ? player.name : ''),
-            putts: sc.putts ? String(sc.putts).split(",").map(Number) : null
+            putts: sc.putts ? String(sc.putts).split(",").map(Number) : null,
+            hcp_index: sc.hcp_index != null && sc.hcp_index !== '' ? Number(sc.hcp_index) : null
           };
         });
 
@@ -1332,29 +1333,6 @@ function getLaguneada(fn){
 // ════════════════════════════════════════════════════
 // RANKINGS ACUMULADOS
 // ════════════════════════════════════════════════════
-function getAccum(){
-  const map={};
-  TP.forEach(p=>{map[p.id]={pid:p.id,p,stb:0,medal:0,lag:0,mixed:0,fechas:0};});
-  Object.keys(FD).forEach(fn=>{
-    const n=parseInt(fn);
-    getFechaResults(n).filter(r=>!r.isReplace).forEach(r=>{
-      if(map[r.pid]){map[r.pid].stb+=r.stb;map[r.pid].fechas++;}
-    });
-    // Medal: acumula score neto real (menor es mejor, como stroke play clásico)
-    getFechaResults(n).filter(r=>!r.isReplace && !r.hasPenalization).forEach(r=>{
-      if(map[r.pid]) map[r.pid].medal+=r.net;
-    });
-    getLaguneada(n).forEach(l=>{
-      l.pids.forEach(pid=>{if(map[pid]) map[pid].lag+=l.lagPts;});
-    });
-  });
-  Object.values(map).forEach(r=>{
-    r.mixed=+(r.stb+r.lag).toFixed(1);
-    // Medal: promedio de neto por fecha (menor es mejor). Así no penaliza a quien jugó más fechas.
-    r.medalAvg = r.fechas > 0 ? +(r.medal / r.fechas).toFixed(2) : 9999;
-  });
-  return Object.values(map).filter(x=>x.fechas>0);
-}
 
 function getPlayerStats(pid){
   let geagles=0,gbirdies=0,gpars=0,gbogeys=0,gdbls=0,gworse=0;
@@ -1648,36 +1626,120 @@ function swRT(m,el){
   document.querySelectorAll('#MC .tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');renderRT(m);
 }
+
+function getAccum(){
+  const map={};
+  TP.forEach(p=>{map[p.id]={pid:p.id,p,stb:0,medal:0,lag:0,mixed:0,fechas:0,
+    stbScores:[],medalScores:[],lagScores:[]};});
+  Object.keys(FD).forEach(fn=>{
+    const n=parseInt(fn);
+    getFechaResults(n).filter(r=>!r.isReplace).forEach(r=>{
+      if(map[r.pid]){
+        map[r.pid].stb+=r.stb;
+        map[r.pid].fechas++;
+        map[r.pid].stbScores.push({fn:n, pts:r.stb});
+      }
+    });
+    getFechaResults(n).filter(r=>!r.isReplace && !r.hasPenalization).forEach(r=>{
+      if(map[r.pid]){
+        map[r.pid].medal+=r.net;
+        map[r.pid].medalScores.push({fn:n, net:r.net});
+      }
+    });
+    getLaguneada(n).forEach(l=>{
+      l.pids.forEach(pid=>{
+        if(map[pid]){
+          map[pid].lag+=l.lagPts;
+          map[pid].lagScores.push({fn:n, pts:l.lagPts});
+        }
+      });
+    });
+  });
+  Object.values(map).forEach(r=>{
+    r.mixed=+(r.stb+r.lag).toFixed(1);
+    r.medalAvg = r.fechas > 0 ? +(r.medal / r.fechas).toFixed(2) : 9999;
+
+    // Helper: best 4 (highest) from array of {fn, pts}
+    const best4High = (scores) => {
+      if (scores.length >= 5) {
+        const s4 = [...scores].sort((a,b)=>b.pts-a.pts).slice(0,4);
+        return { val: s4.reduce((t,x)=>t+x.pts,0), fns: new Set(s4.map(x=>x.fn)) };
+      }
+      return { val: scores.reduce((t,x)=>t+x.pts,0), fns: new Set(scores.map(x=>x.fn)) };
+    };
+
+    // STB best 4 (más puntos = mejor)
+    const sb4 = best4High(r.stbScores);
+    r.stb4 = sb4.val; r.stb4Fns = sb4.fns;
+
+    // Medal best 4 (menor neto = mejor)
+    if (r.medalScores.length >= 5) {
+      const s4 = [...r.medalScores].sort((a,b)=>a.net-b.net).slice(0,4);
+      r.medal4 = s4.reduce((t,x)=>t+x.net,0);
+      r.medal4Fns = new Set(s4.map(x=>x.fn));
+    } else {
+      r.medal4 = r.medal;
+      r.medal4Fns = new Set(r.medalScores.map(x=>x.fn));
+    }
+
+    // Lag best 4 (más puntos = mejor)
+    const lb4 = best4High(r.lagScores);
+    r.lag4 = lb4.val; r.lag4Fns = lb4.fns;
+
+    // Mixed best 4: stb+lag por fecha, tomar las 4 mejores combinadas
+    const mixMap = {};
+    r.stbScores.forEach(s=>{ mixMap[s.fn]=(mixMap[s.fn]||0)+s.pts; });
+    r.lagScores.forEach(l=>{ mixMap[l.fn]=(mixMap[l.fn]||0)+l.pts; });
+    const mixArr = Object.entries(mixMap).map(([fn,pts])=>({fn:parseInt(fn),pts}));
+    const mb4 = best4High(mixArr);
+    r.mixed4 = +mb4.val.toFixed(1); r.mixed4Fns = mb4.fns;
+  });
+  return Object.values(map).filter(x=>x.fechas>0);
+}
+
 function renderRT(mode){
   const el=document.getElementById('RC');
   const all=getAccum();
-  const keyMap={stb:'stb',medal:'medal',lag:'lag',mixed:'mixed'};
-  const k=keyMap[mode];
-  // En Laguneada mostrar a todos (incluidos invitados). En los demás, excluir invitados.
+  const useBest4 = Object.keys(FD).length >= 5;
   const filtered = mode === 'lag' ? all : all.filter(r => !r.p.isInvitado);
-  const sorted=mode==='medal'?[...filtered].sort((a,b)=>a.medalAvg-b.medalAvg):[...filtered].sort((a,b)=>b[k]-a[k]);
+  const sorted =
+    mode==='medal' ? [...filtered].sort((a,b)=>a.medal4-b.medal4) :
+    mode==='stb'   ? [...filtered].sort((a,b)=>b.stb4-a.stb4) :
+    mode==='lag'   ? [...filtered].sort((a,b)=>b.lag4-a.lag4) :
+                     [...filtered].sort((a,b)=>b.mixed4-a.mixed4);
+  const best4note = useBest4 ? ' ✅ <strong>Mejores 4</strong> de 5+ fechas — scores que cuentan marcados en verde.' : ' A partir de 5 fechas se tomarán las mejores 4.';
   const descMap={
-    stb:'Stableford: Eagle=4 · Birdie=3 · Par=2 · Bogey=1 · Doble+=0 — ventaja hoyo por hoyo. Se acumula el score STB real de cada fecha. El que más puntos sume en las 6 fechas gana.',
-    medal:'Medal: promedio de score neto por fecha jugada (gross − hándicap). Menor promedio gana. A partir de 5 fechas jugadas, se toman las mejores 4.',
-    lag:'Laguneada: línea ganadora +6pts · 2da +3pts · 3ra 0pts — suma a cada jugador de la línea por fecha.',
-    mixed:'Mixto: suma de puntos Stableford reales + puntos Laguneada acumulados.'
+    stb:`Stableford: Eagle=4 · Birdie=3 · Par=2 · Bogey=1 · Doble+=0 — ventaja hoyo por hoyo.${best4note}`,
+    medal:`Medal: score neto (gross − hándicap). Menor puntaje gana.${best4note}`,
+    lag:`Laguneada: línea ganadora +6pts · 2da +3pts · 3ra 0pts.${best4note}`,
+    mixed:`Mixto: STB + Laguneada por fecha.${best4note}`
   };
+  const get4Fns = (r) => mode==='stb'?r.stb4Fns : mode==='medal'?r.medal4Fns : mode==='lag'?r.lag4Fns : r.mixed4Fns;
+  const get4Val = (r) => mode==='stb'?r.stb4 : mode==='medal'?r.medal4 : mode==='lag'?r.lag4 : r.mixed4;
+  const getTot  = (r) => mode==='stb'?r.stb : mode==='medal'?r.medal : mode==='lag'?r.lag : r.mixed;
+  const getNRounds = (r) => mode==='medal' ? r.medalScores.length : mode==='lag' ? r.lagScores.length : r.stbScores.length;
   el.innerHTML=`
   <div class="alert ai" style="font-size:12px">${descMap[mode]}</div>
   <div class="card"><table>
-    <thead><tr><th>#</th><th>Jugador</th><th>HCP</th><th>Fechas</th>
+    <thead><tr><th>#</th><th>Jugador</th><th>HCP</th><th>Rondas</th>
     ${SCHED.map(s=>`<th style="text-align:center">F${s.num}${s.doble?' 2x':''}</th>`).join('')}
-    <th>Total</th></tr></thead>
+    <th style="text-align:center">Total</th>${useBest4?'<th style="text-align:center;color:var(--g8)">Mej. 4 ⭐</th>':''}</tr></thead>
     <tbody>${sorted.map((r,i)=>{
+      const fns4 = get4Fns(r);
       const cells=SCHED.map(s=>{
         if(!FD[s.num]) return`<td style="text-align:center;color:var(--txm)">—</td>`;
+        const counts = fns4?.has(s.num);
+        const greenStyle = `text-align:center;font-size:12px;font-family:'DM Mono',monospace;font-weight:700;color:var(--g8);background:rgba(34,139,34,0.07);border-radius:4px`;
+        const dimStyle   = `text-align:center;font-size:12px;font-family:'DM Mono',monospace;color:var(--txm)`;
         if(mode==='stb'){
           const fr=getFechaResults(s.num).find(x=>x.pid==r.pid);
-          return fr?`<td style="text-align:center;font-size:12px;font-family:'DM Mono',monospace">${fr.stb}</td>`:`<td style="text-align:center;color:var(--txm)">—</td>`;
+          if(!fr) return`<td style="text-align:center;color:var(--txm)">—</td>`;
+          return`<td style="${counts&&useBest4?greenStyle:dimStyle}">${fr.stb}${counts&&useBest4?' ✓':''}</td>`;
         }
         if(mode==='medal'){
           const fr=getFechaResults(s.num).find(x=>x.pid==r.pid);
-          return fr?`<td style="text-align:center;font-size:12px;font-family:'DM Mono',monospace">${fr.net}</td>`:`<td style="text-align:center;color:var(--txm)">—</td>`;
+          if(!fr) return`<td style="text-align:center;color:var(--txm)">—</td>`;
+          return`<td style="${counts&&useBest4?greenStyle:dimStyle}">${fr.net}${counts&&useBest4?' ✓':''}</td>`;
         }
         if(mode==='lag'){
           const lr=getLaguneada(s.num).find(l=>l.pids.includes(r.pid));
@@ -1691,10 +1753,16 @@ function renderRT(mode){
         const tot=sp+lp;
         return fr?`<td style="text-align:center;font-size:12px">${tot}</td>`:`<td style="text-align:center;color:var(--txm)">—</td>`;
       }).join('');
+      const totalCell = mode==='medal'
+        ? `<td style="text-align:center;font-size:12px;color:var(--txm);font-family:'DM Mono',monospace">${r.medal}</td>`
+        : `<td>${ptb(r[k])}</td>`;
+      const best4Cell = mode==='medal' && useBest4
+        ? `<td style="text-align:center"><strong style="font-family:'DM Mono',monospace;color:var(--g8);font-size:15px">${r.medal4}</strong>${r.medalScores.length < 5 ? '<span style="font-size:9px;color:var(--txm);display:block">todas</span>' : ''}</td>`
+        : '';
       return`<tr class="${i<3?'hl':''}">
         <td>${pb(i+1)}</td><td><strong>${r.p.name}</strong></td>
         <td>${r.p.hcp!=null?r.p.hcp:'TBD'}</td><td>${r.fechas}</td>
-        ${cells}<td>${mode==='medal' ? ptbMedal(r.medalAvg) + '<span style="font-size:9px;color:var(--txm);margin-left:3px;">prom</span>' : ptb(r[k])}</td>
+        ${cells}${totalCell}${best4Cell}
       </tr>`;
     }).join('')}</tbody>
   </table></div>
@@ -2774,20 +2842,38 @@ function rJug(el){
     <tbody>${titulares.map((p,i)=>{
       const st=getPlayerStats(p.id);
       const cls=['l1b','l2b','bb','ba','bg','bp'][i%6];
+      const lastIdx = (() => {
+        const dates = Object.keys(FD).map(Number).sort((a,b)=>b-a);
+        for (const dn of dates) {
+          const sc = FD[dn]?.scores?.[p.id];
+          if (sc && sc.hcp_index != null && sc.hcp_index > 0) return sc.hcp_index;
+        }
+        return null;
+      })();
+      const hcpDisplay = lastIdx != null ? lastIdx : (p.hcp != null ? p.hcp : null);
       return`<tr>
         <td><div style="width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600" class="${cls}">${p.ini}</div></td>
         <td><strong>${p.name}</strong></td>
-        <td style="font-family:'DM Mono',monospace">${p.hcp!=null?p.hcp:'<span class="bdg ba">TBD</span>'}</td>
+        <td style="font-family:'DM Mono',monospace">${hcpDisplay!=null?hcpDisplay:'<span class="bdg ba">TBD</span>'}</td>
         <td style="font-size:12px;color:var(--txm)">${p.mat}</td>
         <td>${st.asist}/${tf}</td><td>${st.h19c}</td>
         <td><span class="bdg bg">Activo</span></td>
       </tr>`;
     }).join('')}${invitados.length ? invitados.map((p,i)=>{
       const st=getPlayerStats(p.id);
+      const lastIdx = (() => {
+        const dates = Object.keys(FD).map(Number).sort((a,b)=>b-a);
+        for (const dn of dates) {
+          const sc = FD[dn]?.scores?.[p.id];
+          if (sc && sc.hcp_index != null && sc.hcp_index > 0) return sc.hcp_index;
+        }
+        return null;
+      })();
+      const hcpDisplay = lastIdx != null ? lastIdx : (p.hcp != null ? p.hcp : null);
       return`<tr style="opacity:0.75">
         <td><div style="width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;background:var(--gray1);color:var(--gray6)">${p.ini}</div></td>
         <td><strong>${p.name}</strong> <span class="bdg ba" style="font-size:9px;padding:1px 5px">Invitado</span></td>
-        <td style="font-family:'DM Mono',monospace">${p.hcp!=null?p.hcp:'<span class="bdg ba">TBD</span>'}</td>
+        <td style="font-family:'DM Mono',monospace">${hcpDisplay!=null?hcpDisplay:'<span class="bdg ba">TBD</span>'}</td>
         <td style="font-size:12px;color:var(--txm)">${p.mat || '—'}</td>
         <td>${st.asist}/${tf}</td><td>${st.h19c}</td>
         <td><span class="bdg" style="background:var(--gray0);color:var(--gray6)">Invitado</span></td>
