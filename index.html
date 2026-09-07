@@ -1753,11 +1753,10 @@ function renderRT(mode){
         const tot=sp+lp;
         return fr?`<td style="text-align:center;font-size:12px">${tot}</td>`:`<td style="text-align:center;color:var(--txm)">—</td>`;
       }).join('');
-      const totalCell = mode==='medal'
-        ? `<td style="text-align:center;font-size:12px;color:var(--txm);font-family:'DM Mono',monospace">${r.medal}</td>`
-        : `<td>${ptb(r[k])}</td>`;
-      const best4Cell = mode==='medal' && useBest4
-        ? `<td style="text-align:center"><strong style="font-family:'DM Mono',monospace;color:var(--g8);font-size:15px">${r.medal4}</strong>${r.medalScores.length < 5 ? '<span style="font-size:9px;color:var(--txm);display:block">todas</span>' : ''}</td>`
+      const totalCell = `<td style="text-align:center;font-size:12px;color:var(--txm);font-family:'DM Mono',monospace">${getTot(r)}</td>`;
+      const nRounds = getNRounds(r);
+      const best4Cell = useBest4
+        ? `<td style="text-align:center"><strong style="font-family:'DM Mono',monospace;color:var(--g8);font-size:15px">${get4Val(r)}</strong>${nRounds<5?'<span style="font-size:9px;color:var(--txm);display:block">todas</span>':''}</td>`
         : '';
       return`<tr class="${i<3?'hl':''}">
         <td>${pb(i+1)}</td><td><strong>${r.p.name}</strong></td>
