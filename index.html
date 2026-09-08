@@ -2909,11 +2909,47 @@ function rStats(el){
     <div class="tab active" onclick="swST('gen',this)">General</div>
     <div class="tab" onclick="swST('dist',this)">Distribución</div>
     <div class="tab" onclick="swST('asist',this)">Asistencia</div>
+    <div class="tab" onclick="swST('hcp',this)">HCP índex</div>
   </div>
   <div id="SC"></div>`;
   rST('gen');
 }
 function swST(m,el){document.querySelectorAll('#MC .tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');rST(m);}
+
+// Historial de HCP índex por jugador, ordenado por fecha.
+// Fuente: columna hcp_index de la pestaña "resultados" (una lectura por fecha jugada).
+function getHcpHistory(pid){
+  return Object.keys(FD).map(Number).sort((a,b)=>a-b)
+    .map(fn => {
+      const sc = FD[fn]?.scores?.[pid];
+      const idx = (sc && sc.hcp_index != null && sc.hcp_index > 0) ? Number(sc.hcp_index) : null;
+      return idx != null ? {fn, idx} : null;
+    })
+    .filter(Boolean);
+}
+
+// Sparkline SVG de la evolución. En golf, índice más bajo = mejor,
+// así que una línea que baja se pinta en verde.
+function hcpSparkline(hist, w=92, h=26){
+  if (hist.length < 2) return '<span style="font-size:10px;color:var(--txm)">—</span>';
+  const vals = hist.map(x=>x.idx);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const span = (max - min) || 1;
+  const pad = 3;
+  const pts = hist.map((x,i)=>{
+    const px = pad + (i/(hist.length-1)) * (w - pad*2);
+    const py = pad + ((x.idx - min)/span) * (h - pad*2);
+    return [px, py];
+  });
+  const mejora = vals[vals.length-1] < vals[0];
+  const col = mejora ? 'var(--g6)' : (vals[vals.length-1] > vals[0] ? 'var(--r8)' : 'var(--txm)');
+  const path = pts.map((p,i)=>`${i?'L':'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+  const dots = pts.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="1.8" fill="${col}"/>`).join('');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="vertical-align:middle">
+    <path d="${path}" fill="none" stroke="${col}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}
+  </svg>`;
+}
 
 function pctColor(pct){
   if(pct>=80) return 'var(--g6)';
@@ -3042,6 +3078,65 @@ function rST(mode){
           </div>
         </div>`;
       }).join('')}
+    </div>`;
+
+  } else if(mode==='hcp'){
+    // ── EVOLUCIÓN DEL HCP ÍNDEX ──────────────────────────────
+    const fechas = Object.keys(FD).map(Number).sort((a,b)=>a-b);
+    const filas = TP.map(p=>{
+      const hist = getHcpHistory(p.id);
+      if(!hist.length) return null;
+      const primero = hist[0].idx, ultimo = hist[hist.length-1].idx;
+      const delta = +(ultimo - primero).toFixed(1);
+      return {p, hist, primero, ultimo, delta, lecturas: hist.length};
+    }).filter(Boolean);
+
+    if(!filas.length){
+      el.innerHTML = `<div class="alert ai">Todavía no hay lecturas de HCP índex cargadas. Se toman de la columna <code>hcp_index</code> de la pestaña <strong>resultados</strong>, una por fecha jugada.</div>`;
+      return;
+    }
+
+    const conDelta = filas.filter(f=>f.lecturas>1);
+    const mejoraron = conDelta.filter(f=>f.delta<0);
+    const empeoraron = conDelta.filter(f=>f.delta>0);
+    const mejorMejora = [...conDelta].sort((a,b)=>a.delta-b.delta)[0];
+    const ordenadas = [...filas].sort((a,b)=>a.delta-b.delta || a.ultimo-b.ultimo);
+
+    const deltaTxt = (d) => d===0 ? '=' : (d<0 ? '↓ '+Math.abs(d) : '↑ '+d);
+    const deltaCol = (d) => d===0 ? 'var(--txm)' : (d<0 ? 'var(--g6)' : 'var(--r8)');
+
+    el.innerHTML=`
+    <div class="alert ai" style="font-size:12px">Evolución del HCP índex tomado de cada tarjeta. Índice más bajo = mejor juego, así que <strong style="color:var(--g6)">bajar es mejorar</strong>.</div>
+    <div class="mg" style="margin-bottom:20px">
+      <div class="mc"><div class="ml">Con historial</div><div class="mv">${filas.length}</div><div class="ms">de ${TP.filter(p=>!p.isInvitado).length} jugadores</div></div>
+      <div class="mc"><div class="ml">Mejoraron</div><div class="mv" style="color:var(--g6)">${mejoraron.length}</div><div class="ms">bajaron el índice</div></div>
+      <div class="mc"><div class="ml">Subieron</div><div class="mv" style="color:var(--r8)">${empeoraron.length}</div><div class="ms">subieron el índice</div></div>
+      <div class="mc"><div class="ml">Mayor mejora</div><div class="mv" style="font-size:18px">${mejorMejora && mejorMejora.delta<0 ? mejorMejora.p.short : '—'}</div><div class="ms">${mejorMejora && mejorMejora.delta<0 ? Math.abs(mejorMejora.delta)+' puntos' : 'sin variación aún'}</div></div>
+    </div>
+    <div class="card"><div class="tw"><table>
+      <thead><tr>
+        <th>Jugador</th>
+        ${fechas.map(fn=>`<th style="text-align:center">F${fn}</th>`).join('')}
+        <th style="text-align:center">Evolución</th>
+        <th style="text-align:center">Variación</th>
+      </tr></thead>
+      <tbody>${ordenadas.map(f=>{
+        const celdas = fechas.map(fn=>{
+          const h = f.hist.find(x=>x.fn===fn);
+          if(!h) return `<td style="text-align:center;color:var(--txm)">—</td>`;
+          const prev = f.hist[f.hist.indexOf(h)-1];
+          const col = prev ? (h.idx<prev.idx?'var(--g6)':h.idx>prev.idx?'var(--r8)':'var(--tx)') : 'var(--tx)';
+          return `<td style="text-align:center;font-family:'DM Mono',monospace;color:${col}">${h.idx}</td>`;
+        }).join('');
+        return `<tr>
+          <td><strong>${f.p.name}</strong>${f.p.isInvitado?' <span class="bdg ba" style="font-size:9px">Inv.</span>':''}</td>
+          ${celdas}
+          <td style="text-align:center">${hcpSparkline(f.hist)}</td>
+          <td style="text-align:center;font-weight:600;font-family:'DM Mono',monospace;color:${deltaCol(f.delta)}">${f.lecturas>1?deltaTxt(f.delta):'—'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>
+    <div style="font-size:11px;color:var(--txm);margin-top:10px">Las fechas sin lectura aparecen como «—». La variación compara la primera lectura con la última.</div>
     </div>`;
 
   } else {
