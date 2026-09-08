@@ -1092,6 +1092,11 @@ const PTS_D={1:24,2:18,3:14,4:10,5:8,6:6,7:4,8:2};
 // Laguneada: 1ro=6, 2do=3, 3ro=0
 const PTS_L={1:6,2:3,3:0};
 
+// Regla "mejores N de M": desde BEST_MIN_FECHAS fechas jugadas, solo cuentan
+// las BEST_N mejores de cada jugador. Aplica a STB, Medal, Laguneada y Mixto.
+const BEST_N          = 4;
+const BEST_MIN_FECHAS = 5;
+
 // DATOS FECHA 1 — verificados contra tarjetas reales
 let FD = {
   1:{fecha:1,course:'cnsi',date:'08/05/2026',
@@ -1538,7 +1543,8 @@ function closeMD(){document.getElementById('MOD').innerHTML='';}
 function rDash(el){
   const all=getAccum();
   const lS=[...all].sort((a,b)=>b.stb-a.stb)[0];
-  const lM=[...all].filter(r=>r.fechas>0).sort((a,b)=>a.medalAvg-b.medalAvg)[0];
+  // Mismo criterio que el ranking Medal: promedio de los mejores N (menor gana)
+  const lM=[...all].filter(r=>r.medalScores.length>0).sort((a,b)=>a.medal4Avg-b.medal4Avg)[0];
   const lX=[...all].sort((a,b)=>b.mixed-a.mixed)[0];
   
   const playedDates = Object.keys(FD).map(Number).sort((a,b)=>b-a);
@@ -1559,7 +1565,7 @@ function rDash(el){
   <div class="mg">
     <div class="mc"><div class="ml">Fechas jugadas</div><div class="mv">${SCHED.filter(s => s.status === 'played' && s.num !== 99).length}<span style="font-size:16px;color:var(--txm)"> / 6</span></div><div class="ms">Próxima: ${nextDateStr}</div></div>
     <div class="mc"><div class="ml">Líder Stableford</div><div class="mv" style="font-size:18px">${lS?.p.short||'—'}</div><div class="ms">${lS?lS.stb+' pts acum.':''}</div></div>
-    <div class="mc"><div class="ml">Líder Medal</div><div class="mv" style="font-size:18px">${lM?.p.short||'—'}</div><div class="ms">${lM?lM.medalAvg+' neto prom.':''}</div></div>
+    <div class="mc"><div class="ml">Líder Medal</div><div class="mv" style="font-size:18px">${lM?.p.short||'—'}</div><div class="ms">${lM?lM.medal4Avg+' neto prom.':''}</div></div>
     <div class="mc"><div class="ml">Líder Mixto</div><div class="mv" style="font-size:18px">${lX?.p.short||'—'}</div><div class="ms">${lX?lX.mixed+' pts acum.':''}</div></div>
   </div>
   <div class="g2" style="margin-bottom:24px">
@@ -1657,42 +1663,47 @@ function getAccum(){
   });
   Object.values(map).forEach(r=>{
     r.mixed=+(r.stb+r.lag).toFixed(1);
-    r.medalAvg = r.fechas > 0 ? +(r.medal / r.fechas).toFixed(2) : 9999;
 
-    // Helper: best 4 (highest) from array of {fn, pts}
-    const best4High = (scores) => {
-      if (scores.length >= 5) {
-        const s4 = [...scores].sort((a,b)=>b.pts-a.pts).slice(0,4);
-        return { val: s4.reduce((t,x)=>t+x.pts,0), fns: new Set(s4.map(x=>x.fn)) };
-      }
-      return { val: scores.reduce((t,x)=>t+x.pts,0), fns: new Set(scores.map(x=>x.fn)) };
+    // Helper: mejores N (mayor = mejor) sobre array de {fn, pts}
+    const bestHigh = (scores) => {
+      const sel = scores.length >= BEST_MIN_FECHAS
+        ? [...scores].sort((a,b)=>b.pts-a.pts).slice(0, BEST_N)
+        : scores;
+      return { val: sel.reduce((t,x)=>t+x.pts,0), fns: new Set(sel.map(x=>x.fn)) };
     };
 
-    // STB best 4 (más puntos = mejor)
-    const sb4 = best4High(r.stbScores);
+    // STB — ranking acumulativo: suma de las mejores N fechas
+    const sb4 = bestHigh(r.stbScores);
     r.stb4 = sb4.val; r.stb4Fns = sb4.fns;
 
-    // Medal best 4 (menor neto = mejor)
-    if (r.medalScores.length >= 5) {
-      const s4 = [...r.medalScores].sort((a,b)=>a.net-b.net).slice(0,4);
-      r.medal4 = s4.reduce((t,x)=>t+x.net,0);
-      r.medal4Fns = new Set(s4.map(x=>x.fn));
-    } else {
-      r.medal4 = r.medal;
-      r.medal4Fns = new Set(r.medalScores.map(x=>x.fn));
-    }
-
-    // Lag best 4 (más puntos = mejor)
-    const lb4 = best4High(r.lagScores);
+    // Laguneada — acumulativo
+    const lb4 = bestHigh(r.lagScores);
     r.lag4 = lb4.val; r.lag4Fns = lb4.fns;
 
-    // Mixed best 4: stb+lag por fecha, tomar las 4 mejores combinadas
+    // Mixto — STB + Lag por fecha, mejores N combinadas
     const mixMap = {};
     r.stbScores.forEach(s=>{ mixMap[s.fn]=(mixMap[s.fn]||0)+s.pts; });
     r.lagScores.forEach(l=>{ mixMap[l.fn]=(mixMap[l.fn]||0)+l.pts; });
     const mixArr = Object.entries(mixMap).map(([fn,pts])=>({fn:parseInt(fn),pts}));
-    const mb4 = best4High(mixArr);
+    const mb4 = bestHigh(mixArr);
     r.mixed4 = +mb4.val.toFixed(1); r.mixed4Fns = mb4.fns;
+
+    // Medal — PROMEDIO de los mejores N netos (menor = mejor).
+    // Se promedia y no se suma: con suma, quien juega menos fechas acumula menos
+    // y quedaría primero automáticamente.
+    if (r.medalScores.length > 0) {
+      const sel = r.medalScores.length >= BEST_MIN_FECHAS
+        ? [...r.medalScores].sort((a,b)=>a.net-b.net).slice(0, BEST_N)
+        : r.medalScores;
+      r.medal4Fns = new Set(sel.map(x=>x.fn));
+      r.medal4    = sel.reduce((t,x)=>t+x.net,0);
+      r.medal4Avg = +(r.medal4 / sel.length).toFixed(2);
+      // Promedio sobre todas las fechas, sin descarte (columna de referencia).
+      // Divide por medalScores.length y no por r.fechas, que incluye penalizadas.
+      r.medalAvg  = +(r.medal / r.medalScores.length).toFixed(2);
+    } else {
+      r.medal4Fns = new Set(); r.medal4 = 0; r.medal4Avg = 9999; r.medalAvg = 9999;
+    }
   });
   return Object.values(map).filter(x=>x.fechas>0);
 }
@@ -1700,76 +1711,83 @@ function getAccum(){
 function renderRT(mode){
   const el=document.getElementById('RC');
   const all=getAccum();
-  const useBest4 = Object.keys(FD).length >= 5;
+  const useBest4 = Object.keys(FD).length >= BEST_MIN_FECHAS;
+  // En Laguneada se muestra a todos (incluidos invitados). En los demás, no.
   const filtered = mode === 'lag' ? all : all.filter(r => !r.p.isInvitado);
+  // Medal ordena por PROMEDIO de los mejores N (menor gana). El resto, por suma (mayor gana).
   const sorted =
-    mode==='medal' ? [...filtered].sort((a,b)=>a.medal4-b.medal4) :
+    mode==='medal' ? [...filtered].sort((a,b)=>a.medal4Avg-b.medal4Avg) :
     mode==='stb'   ? [...filtered].sort((a,b)=>b.stb4-a.stb4) :
     mode==='lag'   ? [...filtered].sort((a,b)=>b.lag4-a.lag4) :
                      [...filtered].sort((a,b)=>b.mixed4-a.mixed4);
-  const best4note = useBest4 ? ' ✅ <strong>Mejores 4</strong> de 5+ fechas — scores que cuentan marcados en verde.' : ' A partir de 5 fechas se tomarán las mejores 4.';
+
+  const best4note = useBest4
+    ? ` ✅ <strong>Mejores ${BEST_N}</strong> desde ${BEST_MIN_FECHAS} fechas jugadas — las que cuentan van marcadas en verde.`
+    : ` A partir de ${BEST_MIN_FECHAS} fechas jugadas se tomarán las mejores ${BEST_N}.`;
   const descMap={
-    stb:`Stableford: Eagle=4 · Birdie=3 · Par=2 · Bogey=1 · Doble+=0 — ventaja hoyo por hoyo.${best4note}`,
-    medal:`Medal: score neto (gross − hándicap). Menor puntaje gana.${best4note}`,
+    stb:`Stableford: Eagle=4 · Birdie=3 · Par=2 · Bogey=1 · Doble+=0 — ventaja hoyo por hoyo. Se suman los puntos.${best4note}`,
+    medal:`Medal: promedio de score neto (gross − hándicap). Menor promedio gana — se promedia, no se suma, para no penalizar a quien juega más fechas.${best4note}`,
     lag:`Laguneada: línea ganadora +6pts · 2da +3pts · 3ra 0pts.${best4note}`,
     mixed:`Mixto: STB + Laguneada por fecha.${best4note}`
   };
-  const get4Fns = (r) => mode==='stb'?r.stb4Fns : mode==='medal'?r.medal4Fns : mode==='lag'?r.lag4Fns : r.mixed4Fns;
-  const get4Val = (r) => mode==='stb'?r.stb4 : mode==='medal'?r.medal4 : mode==='lag'?r.lag4 : r.mixed4;
-  const getTot  = (r) => mode==='stb'?r.stb : mode==='medal'?r.medal : mode==='lag'?r.lag : r.mixed;
+
+  const get4Fns    = (r) => mode==='stb'?r.stb4Fns : mode==='medal'?r.medal4Fns : mode==='lag'?r.lag4Fns : r.mixed4Fns;
+  const get4Val    = (r) => mode==='stb'?r.stb4 : mode==='medal'?r.medal4Avg : mode==='lag'?r.lag4 : r.mixed4;
+  const getTot     = (r) => mode==='stb'?r.stb : mode==='medal'?r.medalAvg : mode==='lag'?r.lag : r.mixed;
   const getNRounds = (r) => mode==='medal' ? r.medalScores.length : mode==='lag' ? r.lagScores.length : r.stbScores.length;
+  const totLabel   = mode==='medal' ? 'Prom. todas' : 'Total';
+  const b4Label    = mode==='medal' ? `Prom. mej. ${BEST_N} ⭐` : `Mej. ${BEST_N} ⭐`;
+  const fmt        = (v) => v===9999 ? '—' : v;
+
   el.innerHTML=`
   <div class="alert ai" style="font-size:12px">${descMap[mode]}</div>
   <div class="card"><table>
     <thead><tr><th>#</th><th>Jugador</th><th>HCP</th><th>Rondas</th>
     ${SCHED.map(s=>`<th style="text-align:center">F${s.num}${s.doble?' 2x':''}</th>`).join('')}
-    <th style="text-align:center">Total</th>${useBest4?'<th style="text-align:center;color:var(--g8)">Mej. 4 ⭐</th>':''}</tr></thead>
+    <th style="text-align:center">${totLabel}</th>${useBest4?`<th style="text-align:center;color:var(--g8)">${b4Label}</th>`:''}</tr></thead>
     <tbody>${sorted.map((r,i)=>{
       const fns4 = get4Fns(r);
+      const nR = getNRounds(r);
+      // El descarte aplica por jugador, no por torneo: quien no llegó a BEST_MIN_FECHAS
+      // cuenta todas sus fechas y no se le marca ninguna en verde.
+      const playerBest4 = nR >= BEST_MIN_FECHAS;
+      const mark = (val) => {
+        const green = `text-align:center;font-size:12px;font-family:'DM Mono',monospace;font-weight:700;color:var(--g8);background:rgba(34,139,34,0.07);border-radius:4px`;
+        const dim   = `text-align:center;font-size:12px;font-family:'DM Mono',monospace;color:var(--txm)`;
+        return `<td style="${val.counts?green:dim}">${val.txt}${val.counts?' ✓':''}</td>`;
+      };
       const cells=SCHED.map(s=>{
         if(!FD[s.num]) return`<td style="text-align:center;color:var(--txm)">—</td>`;
-        const counts = fns4?.has(s.num);
-        const greenStyle = `text-align:center;font-size:12px;font-family:'DM Mono',monospace;font-weight:700;color:var(--g8);background:rgba(34,139,34,0.07);border-radius:4px`;
-        const dimStyle   = `text-align:center;font-size:12px;font-family:'DM Mono',monospace;color:var(--txm)`;
-        if(mode==='stb'){
-          const fr=getFechaResults(s.num).find(x=>x.pid==r.pid);
-          if(!fr) return`<td style="text-align:center;color:var(--txm)">—</td>`;
-          return`<td style="${counts&&useBest4?greenStyle:dimStyle}">${fr.stb}${counts&&useBest4?' ✓':''}</td>`;
-        }
-        if(mode==='medal'){
-          const fr=getFechaResults(s.num).find(x=>x.pid==r.pid);
-          if(!fr) return`<td style="text-align:center;color:var(--txm)">—</td>`;
-          return`<td style="${counts&&useBest4?greenStyle:dimStyle}">${fr.net}${counts&&useBest4?' ✓':''}</td>`;
-        }
+        const counts = playerBest4 && useBest4 && fns4?.has(s.num);
         if(mode==='lag'){
           const lr=getLaguneada(s.num).find(l=>l.pids.includes(r.pid));
           const lp=lr?.lagPts??null;
-          return lp!=null?`<td style="text-align:center;font-size:12px">${lp>0?'+'+lp:lp}</td>`:`<td style="text-align:center;color:var(--txm)">—</td>`;
+          if(lp==null) return`<td style="text-align:center;color:var(--txm)">—</td>`;
+          return mark({counts, txt: lp>0?'+'+lp:String(lp)});
         }
         const fr=getFechaResults(s.num).find(x=>x.pid==r.pid);
-        const sp=fr?.stb??0;
+        if(!fr) return`<td style="text-align:center;color:var(--txm)">—</td>`;
+        if(mode==='stb')   return mark({counts, txt: fr.stb});
+        if(mode==='medal') return mark({counts, txt: fr.net});
         const lr=getLaguneada(s.num).find(l=>l.pids.includes(r.pid));
-        const lp=lr?.lagPts??0;
-        const tot=sp+lp;
-        return fr?`<td style="text-align:center;font-size:12px">${tot}</td>`:`<td style="text-align:center;color:var(--txm)">—</td>`;
+        return mark({counts, txt: (fr.stb??0) + (lr?.lagPts??0)});
       }).join('');
-      const totalCell = `<td style="text-align:center;font-size:12px;color:var(--txm);font-family:'DM Mono',monospace">${getTot(r)}</td>`;
-      const nRounds = getNRounds(r);
+
+      const totalCell = mode==='medal'
+        ? `<td style="text-align:center;font-size:12px;color:var(--txm);font-family:'DM Mono',monospace">${fmt(r.medalAvg)}</td>`
+        : `<td style="text-align:center">${ptb(getTot(r))}</td>`;
       const best4Cell = useBest4
-        ? `<td style="text-align:center"><strong style="font-family:'DM Mono',monospace;color:var(--g8);font-size:15px">${get4Val(r)}</strong>${nRounds<5?'<span style="font-size:9px;color:var(--txm);display:block">todas</span>':''}</td>`
+        ? `<td style="text-align:center"><strong style="font-family:'DM Mono',monospace;color:var(--g8);font-size:15px">${fmt(get4Val(r))}</strong>${
+            !playerBest4 ? '<span style="font-size:9px;color:var(--txm);display:block">todas</span>' : ''
+          }</td>`
         : '';
       return`<tr class="${i<3?'hl':''}">
         <td>${pb(i+1)}</td><td><strong>${r.p.name}</strong></td>
-        <td>${r.p.hcp!=null?r.p.hcp:'TBD'}</td><td>${r.fechas}</td>
+        <td>${r.p.hcp!=null?r.p.hcp:'TBD'}</td><td>${nR}</td>
         ${cells}${totalCell}${best4Cell}
       </tr>`;
     }).join('')}</tbody>
-  </table></div>
-  ${mode==='mixed'?`<div class="card" style="margin-top:16px">
-    <div class="ct">Desglose mixto — F1</div>
-    <table><thead><tr><th>#</th><th>Jugador</th><th>Pts STB acum.</th><th>Pts Lag acum.</th><th>Total Mixto</th></tr></thead>
-    <tbody>${sorted.map((r,i)=>`<tr class="${i<3?'hl':''}"><td>${pb(i+1)}</td><td>${r.p.name}</td><td style="font-family:'DM Mono',monospace">${r.stb}</td><td>${ptb(r.lag)}</td><td><strong style="color:var(--acc)">${r.mixed}</strong></td></tr>`).join('')}</tbody>
-    </table></div>`:''}`;
+  </table></div>`;
 }
 
 // ════════════════════════════════════════════════════
