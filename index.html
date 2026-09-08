@@ -928,7 +928,7 @@ async function cargarDesdeGoogleSheets() {
             isReplace: (player && player.isInvitado) || sc.is_replace === true || String(sc.is_replace || '').toUpperCase() === "TRUE",
             name: sc.player_name || (player ? player.name : ''),
             putts: sc.putts ? String(sc.putts).split(",").map(Number) : null,
-            hcp_index: sc.hcp_index != null && sc.hcp_index !== '' ? Number(sc.hcp_index) : null
+            hcp_index: parseHcpIndex(sc.hcp_index)
           };
         });
 
@@ -2890,7 +2890,8 @@ function rJug(el){
         const dates = Object.keys(FD).map(Number).sort((a,b)=>b-a);
         for (const dn of dates) {
           const sc = FD[dn]?.scores?.[p.id];
-          if (sc && sc.hcp_index != null && sc.hcp_index > 0) return sc.hcp_index;
+          const idx = sc ? parseHcpIndex(sc.hcp_index) : null;
+          if (idx != null) return idx;
         }
         return null;
       })();
@@ -2909,7 +2910,8 @@ function rJug(el){
         const dates = Object.keys(FD).map(Number).sort((a,b)=>b-a);
         for (const dn of dates) {
           const sc = FD[dn]?.scores?.[p.id];
-          if (sc && sc.hcp_index != null && sc.hcp_index > 0) return sc.hcp_index;
+          const idx = sc ? parseHcpIndex(sc.hcp_index) : null;
+          if (idx != null) return idx;
         }
         return null;
       })();
@@ -2943,13 +2945,26 @@ function rStats(el){
 }
 function swST(m,el){document.querySelectorAll('#MC .tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');rST(m);}
 
+// Normaliza un HCP índex leído de la planilla.
+// Contempla: hándicaps de scratch (0) y plus (negativos, ej. -0.2 de D'Elía),
+// y valores que Sheets pueda devolver como texto con coma decimal ("-0,2").
+// Devuelve null solo cuando no hay lectura.
+function parseHcpIndex(v){
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number') return isNaN(v) ? null : v;
+  const s = String(v).trim();
+  if (s === '') return null;
+  const n = Number(s.replace(',', '.'));
+  return isNaN(n) ? null : n;
+}
+
 // Historial de HCP índex por jugador, ordenado por fecha.
 // Fuente: columna hcp_index de la pestaña "resultados" (una lectura por fecha jugada).
 function getHcpHistory(pid){
   return Object.keys(FD).map(Number).sort((a,b)=>a-b)
     .map(fn => {
       const sc = FD[fn]?.scores?.[pid];
-      const idx = (sc && sc.hcp_index != null && sc.hcp_index > 0) ? Number(sc.hcp_index) : null;
+      const idx = sc ? parseHcpIndex(sc.hcp_index) : null;
       return idx != null ? {fn, idx} : null;
     })
     .filter(Boolean);
