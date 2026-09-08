@@ -2936,7 +2936,8 @@ function rStats(el){
   <div class="ph"><h1>Estadísticas</h1><p>Resultados brutos (gross vs par, sin HCP) — acumulados por fecha</p></div>
   <div class="tabs">
     <div class="tab active" onclick="swST('gen',this)">General</div>
-    <div class="tab" onclick="swST('dist',this)">Distribución</div>
+    <div class="tab" onclick="swST('par',this)">Por tipo de hoyo</div>
+    <div class="tab" onclick="swST('dif',this)">Diferencial</div>
     <div class="tab" onclick="swST('asist',this)">Asistencia</div>
     <div class="tab" onclick="swST('hcp',this)">HCP índex</div>
   </div>
@@ -2944,6 +2945,87 @@ function rStats(el){
   rST('gen');
 }
 function swST(m,el){document.querySelectorAll('#MC .tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');rST(m);}
+
+// ── Ronda completa: las 18 casillas cargadas ────────────────────────────
+function esRondaCompleta(sc){
+  return !!(sc && sc.holes && sc.holes.length === 18 && sc.holes.every(h => h > 0));
+}
+
+// ── Récord: mejor vuelta bruta del torneo (solo titulares) ──────────────
+function getMejorVuelta(){
+  let mejor = null;
+  Object.keys(FD).map(Number).forEach(fn => {
+    const fd = FD[fn]; if(!fd) return;
+    const cur = getCourse(fd.course);
+    Object.entries(fd.scores).forEach(([pid, sc]) => {
+      const p = getPlayer(pid);
+      if(!p || p.isInvitado || sc.noShow || sc.isReplace) return;
+      if(!esRondaCompleta(sc)) return;
+      const g = gross(sc.holes);
+      if(!mejor || g < mejor.gross){
+        mejor = {
+          p, fn, gross: g,
+          net: neto(sc.holes, sc.hcp),
+          stb: stb(sc.holes, sc.hcp, cur.par, cur.hdi),
+          vsPar: g - cur.par.reduce((a,b)=>a+b,0),
+          course: cur.name,
+          date: fd.date || getSched(fn)?.date || ''
+        };
+      }
+    });
+  });
+  return mejor;
+}
+
+// ── Rendimiento por tipo de hoyo (par 3 / 4 / 5) ────────────────────────
+// Agrupa según el par de la cancha de cada fecha, así funciona aunque cambie el campo.
+function getStatsPorPar(pid){
+  const acc = {3:{n:0,golpes:0,birdies:0,dobles:0}, 4:{n:0,golpes:0,birdies:0,dobles:0}, 5:{n:0,golpes:0,birdies:0,dobles:0}};
+  Object.keys(FD).map(Number).forEach(fn => {
+    const fd = FD[fn]; if(!fd) return;
+    const sc = fd.scores?.[pid]; if(!sc || sc.noShow || !sc.holes) return;
+    const cur = getCourse(fd.course);
+    sc.holes.forEach((h,i) => {
+      if(!(h > 0)) return;                    // hoyo sin cargar
+      const par = cur.par[i];
+      if(!acc[par]) return;                   // par 6 u otro: fuera de las tres categorías
+      acc[par].n++;
+      acc[par].golpes += h;
+      const d = h - par;
+      if(d <= -1) acc[par].birdies++;
+      if(d >= 2)  acc[par].dobles++;
+    });
+  });
+  [3,4,5].forEach(p => {
+    const a = acc[p];
+    a.prom  = a.n ? +(a.golpes / a.n).toFixed(2) : null;
+    a.vsPar = a.n ? +((a.golpes / a.n) - p).toFixed(2) : null;
+  });
+  return acc;
+}
+
+// ── Diferencial WHS: (113 / slope) x (gross - rating) ───────────────────
+// Normaliza el score contra la dificultad de la cancha, así se pueden comparar
+// vueltas jugadas en campos distintos.
+function getDiferenciales(pid){
+  const out = [];
+  Object.keys(FD).map(Number).sort((a,b)=>a-b).forEach(fn => {
+    const fd = FD[fn]; if(!fd) return;
+    const sc = fd.scores?.[pid]; if(!sc || sc.noShow) return;
+    if(!esRondaCompleta(sc)) return;
+    const cur = getCourse(fd.course);
+    const slope = cur.slope > 0 ? cur.slope : 113;
+    const g = gross(sc.holes);
+    const dif = +((113 / slope) * (g - cur.rating)).toFixed(1);
+    const idx = parseHcpIndex(sc.hcp_index);
+    out.push({
+      fn, gross: g, dif, idx,
+      vsIdx: idx != null ? +(dif - idx).toFixed(1) : null,
+      course: cur.name
+    });
+  });
+  return out;
+}
 
 // Normaliza un HCP índex leído de la planilla.
 // Contempla: hándicaps de scratch (0) y plus (negativos, ej. -0.2 de D'Elía),
@@ -3006,7 +3088,23 @@ function rST(mode){
 
   if(mode==='gen'){
     const totalHoles=rows.reduce((s,r)=>s+r.st.rounds*18,0);
-    el.innerHTML=`
+    const rec = getMejorVuelta();
+    const recordHtml = rec ? `
+    <div class="card" style="margin-bottom:20px;border-left:3px solid var(--a4)">
+      <div class="ct">🏆 Récord del torneo — mejor vuelta</div>
+      <div style="display:flex;align-items:center;gap:22px;flex-wrap:wrap">
+        <div>
+          <div style="font-family:'DM Serif Display',serif;font-size:34px;line-height:1;color:var(--a8)">${rec.gross}</div>
+          <div style="font-size:11px;color:var(--txm);margin-top:3px">${rec.vsPar>0?'+'+rec.vsPar:rec.vsPar} vs par</div>
+        </div>
+        <div style="flex:1;min-width:180px">
+          <div style="font-size:15px;font-weight:600">${rec.p.name}</div>
+          <div style="font-size:12px;color:var(--tx2);margin-top:2px">Fecha ${rec.fn} · ${rec.course}</div>
+          <div style="font-size:11px;color:var(--txm);margin-top:4px">Neto ${rec.net} · ${rec.stb} pts Stableford</div>
+        </div>
+      </div>
+    </div>` : '';
+    el.innerHTML=recordHtml+`
     <div class="mg" style="margin-bottom:20px">
       <div class="mc"><div class="ml">Rondas totales</div><div class="mv">${rows.reduce((s,r)=>s+r.st.rounds,0)}</div></div>
       <div class="mc"><div class="ml">Birdies brutos</div><div class="mv">${rows.reduce((s,r)=>s+r.st.gbirdies,0)}</div></div>
@@ -3085,41 +3183,105 @@ function rST(mode){
       }).join('')}
     </div>`;
 
-  } else if(mode==='dist'){
+  } else if(mode==='par'){
+    // ── RENDIMIENTO POR TIPO DE HOYO ─────────────────────────
+    const filas = TP.filter(p=>!p.isInvitado).map(p=>({p, s:getStatsPorPar(p.id)}))
+      .filter(f=>f.s[3].n || f.s[4].n || f.s[5].n);
+    if(!filas.length){ el.innerHTML=`<div class="alert ai">Todavía no hay tarjetas cargadas.</div>`; return; }
+
+    const colVs = (v) => v==null ? 'var(--txm)' : v<0 ? 'var(--g6)' : v<1 ? 'var(--a6)' : 'var(--r8)';
+    const fmtVs = (v) => v==null ? '—' : (v>0?'+':'')+v.toFixed(2);
+    // Mejor jugador de cada categoría
+    const mejorEn = (par) => [...filas].filter(f=>f.s[par].n>=3).sort((a,b)=>a.s[par].vsPar-b.s[par].vsPar)[0];
+
     el.innerHTML=`
-    <div class="card">
-      <div class="ct">Distribución de golpes brutos por jugador</div>
-      ${rows.map(({p,st})=>{
-        const tot=st.rounds*18||1;
-        const items=[
-          {l:'Eagles',v:st.geagles,c:'var(--a4)'},{l:'Birdies',v:st.gbirdies,c:'var(--g6)'},
-          {l:'Pares',v:st.gpars,c:'var(--gray2)'},{l:'Bogeys',v:st.gbogeys,c:'var(--b2)'},
-          {l:'Dbl+',v:st.gdbls+st.gworse,c:'var(--r2)'},
-        ];
-        const buenos=st.geagles+st.gbirdies+st.gpars;
-        const pctBuenos=Math.round(buenos/tot*100);
-        return`<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--bdr)">
-          <div style="display:flex;justify-content:space-between;margin-bottom:5px">
-            <span style="font-size:13px;font-weight:500">${p.name}</span>
-            <div style="display:flex;gap:12px;align-items:center">
-              <span style="font-size:11px;color:var(--txm)">${tot} hoyos · ${st.rounds} rondas</span>
-              <span style="font-size:12px;font-weight:600;color:${pctColor(pctBuenos)}">${pctBuenos}% buenos</span>
-            </div>
-          </div>
-          <div style="display:flex;height:10px;border-radius:99px;overflow:hidden;gap:1px">
-            ${items.map(x=>x.v>0?`<div style="width:${(x.v/tot*100).toFixed(1)}%;background:${x.c}" title="${x.l}: ${x.v} (${(x.v/tot*100).toFixed(1)}%)"></div>`:'').join('')}
-          </div>
-          <div style="display:flex;gap:12px;margin-top:5px;flex-wrap:wrap">
-            ${items.map(x=>{
-              const pct=(x.v/tot*100).toFixed(1);
-              return`<span style="font-size:11px;color:var(--txm);display:flex;align-items:center;gap:4px">
-                <span style="width:8px;height:8px;border-radius:50%;background:${x.c};display:inline-block;flex-shrink:0"></span>
-                ${x.l}: <strong>${x.v}</strong> <span style="opacity:.7">(${pct}%)</span>
-              </span>`;
-            }).join('')}
-          </div>
+    <div class="alert ai" style="font-size:12px">Promedio de golpes sobre el par en cada tipo de hoyo, agrupado según el par de la cancha de cada fecha. Números brutos, sin hándicap.</div>
+    <div class="mg" style="margin-bottom:20px">
+      ${[3,4,5].map(par=>{
+        const m = mejorEn(par);
+        return `<div class="mc">
+          <div class="ml">Mejor en par ${par}</div>
+          <div class="mv" style="font-size:18px">${m?m.p.short:'—'}</div>
+          <div class="ms">${m?fmtVs(m.s[par].vsPar)+' por hoyo':'sin datos suficientes'}</div>
         </div>`;
       }).join('')}
+      <div class="mc"><div class="ml">Hoyos analizados</div><div class="mv">${filas.reduce((t,f)=>t+f.s[3].n+f.s[4].n+f.s[5].n,0)}</div><div class="ms">de todas las fechas</div></div>
+    </div>
+    <div class="card"><div class="tw"><table>
+      <thead><tr>
+        <th rowspan="2" style="vertical-align:bottom">Jugador</th>
+        <th colspan="3" style="text-align:center;border-bottom:1px solid var(--bdr)">Par 3</th>
+        <th colspan="3" style="text-align:center;border-bottom:1px solid var(--bdr)">Par 4</th>
+        <th colspan="3" style="text-align:center;border-bottom:1px solid var(--bdr)">Par 5</th>
+      </tr><tr>
+        ${[3,4,5].map(()=>`<th style="text-align:center;font-size:10px">Hoyos</th><th style="text-align:center;font-size:10px">Prom.</th><th style="text-align:center;font-size:10px">vs Par</th>`).join('')}
+      </tr></thead>
+      <tbody>${filas.sort((a,b)=>{
+        const A=(a.s[3].vsPar??9)+(a.s[4].vsPar??9)+(a.s[5].vsPar??9);
+        const B=(b.s[3].vsPar??9)+(b.s[4].vsPar??9)+(b.s[5].vsPar??9);
+        return A-B;
+      }).map(f=>`<tr>
+        <td><strong>${f.p.name}</strong></td>
+        ${[3,4,5].map(par=>{
+          const a=f.s[par];
+          if(!a.n) return `<td style="text-align:center;color:var(--txm)">—</td><td style="text-align:center;color:var(--txm)">—</td><td style="text-align:center;color:var(--txm)">—</td>`;
+          return `<td style="text-align:center;color:var(--txm);font-size:11px">${a.n}</td>
+                  <td style="text-align:center;font-family:'DM Mono',monospace">${a.prom}</td>
+                  <td style="text-align:center;font-family:'DM Mono',monospace;font-weight:600;color:${colVs(a.vsPar)}">${fmtVs(a.vsPar)}</td>`;
+        }).join('')}
+      </tr>`).join('')}</tbody>
+    </table></div>
+    <div style="font-size:11px;color:var(--txm);margin-top:10px">Ordenado por rendimiento combinado. Se cuentan solo los hoyos con score cargado.</div>
+    </div>`;
+
+  } else if(mode==='dif'){
+    // ── DIFERENCIAL vs HÁNDICAP ──────────────────────────────
+    const filas = TP.filter(p=>!p.isInvitado).map(p=>{
+      const ds = getDiferenciales(p.id);
+      if(!ds.length) return null;
+      const difs = ds.map(d=>d.dif);
+      const conIdx = ds.filter(d=>d.vsIdx!=null);
+      return {
+        p, ds,
+        prom: +(difs.reduce((a,b)=>a+b,0)/difs.length).toFixed(1),
+        mejor: Math.min(...difs),
+        vsIdxProm: conIdx.length ? +(conIdx.reduce((t,d)=>t+d.vsIdx,0)/conIdx.length).toFixed(1) : null
+      };
+    }).filter(Boolean).sort((a,b)=>a.prom-b.prom);
+
+    if(!filas.length){ el.innerHTML=`<div class="alert ai">Se necesita al menos una vuelta completa (18 hoyos cargados) para calcular el diferencial.</div>`; return; }
+
+    const fechas = Object.keys(FD).map(Number).sort((a,b)=>a-b);
+    const colIdx = (v) => v==null?'var(--txm)':v<0?'var(--g6)':v<2?'var(--a6)':'var(--r8)';
+    const conIdxTodos = filas.filter(f=>f.vsIdxProm!=null);
+    const cumplidor = conIdxTodos.length ? [...conIdxTodos].sort((a,b)=>a.vsIdxProm-b.vsIdxProm)[0] : null;
+
+    el.innerHTML=`
+    <div class="alert ai" style="font-size:12px">Diferencial = (113 / slope) × (gross − rating). Neutraliza la dificultad del campo, así que permite comparar vueltas jugadas en canchas distintas. <strong>Menor es mejor.</strong></div>
+    <div class="mg" style="margin-bottom:20px">
+      <div class="mc"><div class="ml">Mejor promedio</div><div class="mv" style="font-size:18px">${filas[0].p.short}</div><div class="ms">${filas[0].prom} de diferencial</div></div>
+      <div class="mc"><div class="ml">Mejor vuelta</div><div class="mv" style="font-size:18px">${[...filas].sort((a,b)=>a.mejor-b.mejor)[0].p.short}</div><div class="ms">${[...filas].sort((a,b)=>a.mejor-b.mejor)[0].mejor} de diferencial</div></div>
+      <div class="mc"><div class="ml">Más cumplidor</div><div class="mv" style="font-size:18px">${cumplidor?cumplidor.p.short:'—'}</div><div class="ms">${cumplidor?(cumplidor.vsIdxProm>0?'+':'')+cumplidor.vsIdxProm+' vs su índice':'sin índice cargado'}</div></div>
+      <div class="mc"><div class="ml">Vueltas completas</div><div class="mv">${filas.reduce((t,f)=>t+f.ds.length,0)}</div><div class="ms">18 hoyos cargados</div></div>
+    </div>
+    <div class="card"><div class="tw"><table>
+      <thead><tr><th>#</th><th>Jugador</th>
+      ${fechas.map(fn=>`<th style="text-align:center">F${fn}</th>`).join('')}
+      <th style="text-align:center">Promedio</th><th style="text-align:center">Mejor</th><th style="text-align:center">vs índice</th></tr></thead>
+      <tbody>${filas.map((f,i)=>`<tr class="${i<3?'hl':''}">
+        <td>${pb(i+1)}</td><td><strong>${f.p.name}</strong></td>
+        ${fechas.map(fn=>{
+          const d=f.ds.find(x=>x.fn===fn);
+          if(!d) return `<td style="text-align:center;color:var(--txm)">—</td>`;
+          const esMejor = d.dif===f.mejor;
+          return `<td style="text-align:center;font-family:'DM Mono',monospace;${esMejor?'font-weight:700;color:var(--g8)':''}" title="Gross ${d.gross} · ${d.course}">${d.dif}</td>`;
+        }).join('')}
+        <td style="text-align:center;font-family:'DM Mono',monospace;font-weight:600">${f.prom}</td>
+        <td style="text-align:center;font-family:'DM Mono',monospace;color:var(--g8)">${f.mejor}</td>
+        <td style="text-align:center;font-family:'DM Mono',monospace;font-weight:600;color:${colIdx(f.vsIdxProm)}">${f.vsIdxProm==null?'—':(f.vsIdxProm>0?'+':'')+f.vsIdxProm}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+    <div style="font-size:11px;color:var(--txm);margin-top:10px">«vs índice» compara el diferencial con el HCP índex de esa tarjeta: negativo significa que jugó mejor que su índice. Solo se computan vueltas con los 18 hoyos cargados.</div>
     </div>`;
 
   } else if(mode==='hcp'){
