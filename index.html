@@ -2421,12 +2421,13 @@ function rCarga(el){
     <div class="ct">Datos de la fecha</div>
     <div class="fr">
       <div class="fg"><label class="fl">Número de fecha</label>
-        <select class="fc" id="c-fn">${SCHED.map(s=>`<option value="${s.num}">Fecha ${s.num} — ${formatDate(s.date)}</option>`).join('')}</select>
+        <select class="fc" id="c-fn" onchange="cSyncFecha()">${SCHED.map(s=>`<option value="${s.num}">Fecha ${s.num} — ${formatDate(s.date)}</option>`).join('')}</select>
       </div>
       <div class="fg"><label class="fl">Fecha (dd/mm/aaaa)</label><input type="text" class="fc" id="c-date" placeholder="05/06/2026"></div>
     </div>
     <div class="fg"><label class="fl">Cancha</label>
       <select class="fc" id="c-course">${COURSES.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}<option value="new">+ Nueva cancha</option></select>
+      <div id="c-course-warn" style="display:none;font-size:11px;color:var(--a8);background:var(--a0);border-radius:6px;padding:6px 10px;margin-top:6px">⚠️ Esta fecha todavía no tiene cancha asignada. Elegí una antes de guardar.</div>
     </div>
   </div>
 
@@ -2459,6 +2460,32 @@ function rCarga(el){
     <button class="btn btn-p" onclick="saveF()">💾 Guardar fecha</button>
     <button class="btn" onclick="nav('fechas')">Cancelar</button>
   </div>`;
+  cSyncFecha();   // refleja la cancha y la fecha ya guardadas para la fecha seleccionada
+}
+
+// Alinea los campos "Cancha" y "Fecha" con lo que ya está guardado para la fecha elegida.
+// Sin esto el desplegable siempre arrancaba en la primera cancha de la lista y, al guardar,
+// escribía esa cancha encima de la real.
+function cSyncFecha(){
+  const selFn = document.getElementById('c-fn');
+  const selCourse = document.getElementById('c-course');
+  const inpDate = document.getElementById('c-date');
+  if(!selFn || !selCourse) return;
+  const fn = parseInt(selFn.value);
+  const sched = SCHED.find(s=>s.num===fn);
+  const cursoGuardado = FD[fn]?.course || sched?.course || null;
+
+  if(cursoGuardado && [...selCourse.options].some(o=>o.value===cursoGuardado)){
+    selCourse.value = cursoGuardado;
+  }
+  // Aviso visible cuando la fecha todavía no tiene cancha asignada
+  const aviso = document.getElementById('c-course-warn');
+  if(aviso) aviso.style.display = cursoGuardado ? 'none' : 'block';
+
+  if(inpDate && !inpDate.value){
+    const d = FD[fn]?.date || sched?.date;
+    if(d) inpDate.value = formatDate(d);
+  }
 }
 
 function hDrop(e){e.preventDefault();document.getElementById('uz').classList.remove('dv');hFiles(e.dataTransfer.files);}
