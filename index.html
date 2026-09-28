@@ -673,7 +673,8 @@ const GIDS = {
 // ════════════════════════════════════════════════════
 // HELPER: Fetch universal para Google Apps Script
 // ════════════════════════════════════════════════════
-async function golfApiFetch(payload) {
+async function golfApiFetch(payload, opts = {}) {
+  const silent = opts.silent || payload.action === 'getSpreadsheetData';
   // Siempre usamos la URL oficial actual
   const FORCED_URL = 'https://script.google.com/macros/s/AKfycbzB3wNr0HGq-JZYaqPhFPTaEPcc5iP1etLSsJV7i9-1_4DjMlYt4xldvVEzSOJ2xg/exec';
   let targetUrl = FORCED_URL;
@@ -698,12 +699,12 @@ async function golfApiFetch(payload) {
     }
     
     const jsonRes = JSON.parse(text);
-    if (payload.action !== 'getSpreadsheetData' && !jsonRes.success) {
+    if (!silent && !jsonRes.success) {
       alert("Error del Servidor: " + jsonRes.error);
     }
     return jsonRes;
   } catch (err) {
-    if (payload.action !== 'getSpreadsheetData') {
+    if (!silent) {
       alert("Falla de conexión al guardar: " + err.message);
     }
     throw err;
@@ -783,12 +784,13 @@ async function cargarDesdeGoogleSheets() {
     if (coursesRaw && coursesRaw.length) {
       COURSES = coursesRaw.map(c => ({
         id: c.id,
-        name: c.name,
+        name: String(c.name || c.id || '').trim(),
         city: c.city || "",
         par: String(c.par || "").split(",").map(Number),
         hdi: String(c.hdi || "").split(",").map(Number),
         slope: Number(c.slope || 113),
-        rating: Number(c.rating || 72),
+        // Sin rating queda null: inventar 72 daba diferenciales falsos.
+        rating: c.rating !== null && c.rating !== '' && !isNaN(Number(c.rating)) ? Number(c.rating) : null,
         web: c.web_url || "",
         map: c.map_url || ""
       }));
@@ -943,6 +945,8 @@ async function cargarDesdeGoogleSheets() {
     });
 
     FD = nuevoFD;
+    // Lo anotado en vivo que todavía no llegó al servidor no se pierde al refrescar.
+    applyLiveQueueToFD();
   };
 
   if (!APPS_SCRIPT_URL) {
@@ -1091,6 +1095,16 @@ const PTS_N={1:12,2:9,3:7,4:5,5:4,6:3,7:2,8:1};
 const PTS_D={1:24,2:18,3:14,4:10,5:8,6:6,7:4,8:2};
 // Laguneada: 1ro=6, 2do=3, 3ro=0
 const PTS_L={1:6,2:3,3:0};
+// Bonus y penalizaciones por fecha: [fecha normal, fecha doble]. Suman SOLO al ranking Mixto.
+const BONUS={
+  h19:       {label:'Hoyo 19',             pts:[1,2]},
+  approach:  {label:'Mejor approach',      pts:[2,6]},
+  hoyoEnUno: {label:'Hoyo en uno',         pts:[12,24]},
+  noApp:     {label:'No carga en la app',  pts:[-1,-2]},
+  noCard:    {label:'No presenta tarjeta', pts:[-2,-4]},
+  abandon:   {label:'Abandono',            pts:[-3,-6]},
+  noShow:    {label:'No se presenta',      pts:[-4,-8]},
+};
 
 // Regla "mejores N de M": desde BEST_MIN_FECHAS fechas jugadas, solo cuentan
 // las BEST_N mejores de cada jugador. Aplica a STB, Medal, Laguneada y Mixto.
@@ -1126,13 +1140,15 @@ let FD = {
 // Stableford: birdie(neto-1)=3, par=2, bogey=1, doble+=0
 // ════════════════════════════════════════════════════
 function sph(hcp, hdi){
-  // Strokes per hole — distribuye handicap según orden de dificultad
-  const a=new Array(18).fill(Math.floor(hcp/18));
-  const ex=hcp%18;
-  const sorted=[...hdi.entries?.[Symbol.iterator]?.()??hdi.map((v,i)=>({v,i}))].sort?.((x,y)=>x.v-y.v)
-    ?? hdi.map((v,i)=>({v,i})).sort((x,y)=>x.v-y.v);
+  // Strokes per hole — distribuye handicap según orden de dificultad.
+  // Invariante: la suma del array es exactamente el hándicap (redondeado a entero).
+  // Math.trunc (no Math.floor): con hcp negativo, floor(-1/18) = -1 repartía -18 golpes.
+  const h=Math.round(Number(hcp)||0);
+  const a=new Array(18).fill(Math.trunc(h/18));
+  const ex=h%18;
   const si=hdi.map((v,i)=>({v,i})).sort((x,y)=>x.v-y.v);
-  for(let k=0;k<ex;k++) a[si[k].i]++;
+  if(ex>0){ for(let k=0;k<ex;k++) a[si[k].i]++; }
+  else if(ex<0){ for(let k=0;k<-ex;k++) a[si[k].i]--; } // plus: se resta en los hoyos más difíciles (regla del torneo)
   return a;
 }
 
@@ -1158,6 +1174,18 @@ function gross(h){return h.reduce((a,b)=>a+b,0);}
 function neto(h,hcp){return gross(h)-hcp;}
 
 function getCourse(id){return COURSES.find(c=>c.id===id)||COURSES[0];}
+// Una cancha sin 18 pares y 18 HDI válidos (1–18, sin repetir) no permite calcular nada.
+function courseProblems(c){
+  if(!c) return ['cancha inexistente'];
+  const out=[];
+  const okPar=Array.isArray(c.par)&&c.par.length===18&&c.par.every(v=>Number.isInteger(v)&&v>=3&&v<=6);
+  const okHdi=Array.isArray(c.hdi)&&c.hdi.length===18&&c.hdi.every(v=>Number.isInteger(v)&&v>=1&&v<=18)&&new Set(c.hdi).size===18;
+  if(!okPar) out.push('par de los 18 hoyos');
+  if(!okHdi) out.push('HDI (dificultad) de los 18 hoyos');
+  return out;
+}
+function isCourseComplete(c){return courseProblems(c).length===0;}
+function fechaCourseOk(fn){const fd=FD[fn];return !!fd&&isCourseComplete(getCourse(fd.course));}
 function getPlayer(id){
   let p = TP.find(p=>p.id==id);
   if (p) return p;
@@ -1182,6 +1210,29 @@ function getPlayer(id){
   return null;
 }
 function getSched(n){return SCHED.find(s=>s.num===n);}
+// Fechas que entran en rankings y estadísticas: nunca la F99 de simulación ni fechas
+// cuya cancha no tiene par/HDI completos. Orden ascendente.
+function fechasJugadas(){
+  return Object.keys(FD).map(Number).filter(n=>n!==99&&fechaCourseOk(n)).sort((a,b)=>a-b);
+}
+// Una tarjeta suma al ranking anual si es oficial, si tiene los 18 hoyos, o si es una
+// penalización (no-show, abandono, sin tarjeta). Una ronda en vivo a medio jugar no:
+// con 6 hoyos el neto daba ~25 y el jugador aparecía líder de Medal.
+function cuentaParaRanking(sc){
+  if(!sc) return false;
+  if(sc.noShow||sc.abandon||sc.noCard) return true;
+  if(sc.is_official) return true;
+  return !!(sc.holes&&sc.holes.length===18&&sc.holes.every(h=>h>0));
+}
+// Escapar texto antes de insertarlo como HTML (nombres, observaciones, etc.).
+function esc(v){
+  return String(v??'').replace(/[&<>"'`]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[ch]));
+}
+// Solo URLs http(s); cualquier otra cosa (javascript:, data:) se descarta.
+function safeUrl(u){
+  const s=String(u??'').trim();
+  return /^https?:\/\//i.test(s)?esc(s):'';
+}
 
 // ════════════════════════════════════════════════════
 // ASIGNACIÓN DE PUNTOS CON EMPATES
@@ -1210,6 +1261,7 @@ function assignPts(ranked, doble){
 // ════════════════════════════════════════════════════
 function getFechaResults(fn){
   const fd=FD[fn]; if(!fd) return [];
+  if(!fechaCourseOk(fn)) return []; // cancha incompleta: no calcular con NaN
   const c=getCourse(fd.course);
   return Object.entries(fd.scores).map(([pid,sc])=>{
     const p=getPlayer(pid);
@@ -1220,15 +1272,7 @@ function getFechaResults(fn){
     const sched=getSched(fn), doble=sched?.doble||false;
     
     let bonus=0;
-    if(sc.h19)      bonus+=doble?2:1;
-    if(sc.approach) bonus+=doble?6:2;
-    if(sc.hoyoEnUno)bonus+=doble?24:12;
-    if(sc.noApp)    bonus+=doble?-2:-1;
-    
-    // Aplicar penalizaciones del reglamento
-    if(sc.noCard)   bonus+=doble?-4:-2;
-    if(sc.abandon)  bonus+=doble?-6:-3;
-    if(sc.noShow)   bonus+=doble?-8:-4;
+    Object.entries(BONUS).forEach(([k,b])=>{ if(sc[k]) bonus+=b.pts[doble?1:0]; });
     
     const isOfficial = sc.is_official !== false && String(sc.is_official).toUpperCase() !== "FALSE";
     
@@ -1279,6 +1323,7 @@ function getFechaRank(fn, mode){
 // ════════════════════════════════════════════════════
 function getLaguneada(fn){
   const fd=FD[fn]; if(!fd||!fd.lineas) return [];
+  if(!fechaCourseOk(fn)) return [];
   const c=getCourse(fd.course);
   const results=fd.lineas.map(l=>{
     let completedHolesCount = 0;
@@ -1344,13 +1389,16 @@ function getPlayerStats(pid){
   let asist=0,h19c=0,rounds=0,appr=0,henu=0;
   let grossA=[],stbA=[],netA=[];
   const fechaDetail=[];
-  Object.entries(FD).sort((a,b)=>parseInt(a[0])-parseInt(b[0])).forEach(([fn,fd])=>{
-    const sc=fd.scores[pid]; if(!sc||sc.noShow) return;
+  fechasJugadas().map(fn=>[fn,FD[fn]]).forEach(([fn,fd])=>{
+    const sc=fd.scores[pid]; if(!sc||sc.noShow||!cuentaParaRanking(sc)) return;
     const c=getCourse(fd.course);
-    rounds++;asist++;
+    asist++;
     if(sc.h19) h19c++;
     if(sc.approach) appr++;
     if(sc.hoyoEnUno) henu++;
+    // Abandono / sin tarjeta: cuenta la asistencia, pero sus hoyos (en 0) no son estadística.
+    if(sc.abandon||sc.noCard||!sc.holes||sc.holes.some(h=>!(h>0))) return;
+    rounds++;
     const g=gross(sc.holes),n2=neto(sc.holes,sc.hcp);
     const s2=stb(sc.holes,sc.hcp,c.par,c.hdi);
     grossA.push(g);netA.push(n2);stbA.push(s2);
@@ -1541,13 +1589,13 @@ function closeMD(){document.getElementById('MOD').innerHTML='';}
 // DASHBOARD
 // ════════════════════════════════════════════════════
 function rDash(el){
-  const all=getAccum();
-  const lS=[...all].sort((a,b)=>b.stb-a.stb)[0];
-  // Mismo criterio que el ranking Medal: promedio de los mejores N (menor gana)
+  // Mismo criterio que la pantalla Rankings: sin invitados y con "mejores N".
+  const all=getAccum().filter(r=>!r.p.isInvitado);
+  const lS=[...all].sort((a,b)=>b.stb4-a.stb4)[0];
   const lM=[...all].filter(r=>r.medalScores.length>0).sort((a,b)=>a.medal4Avg-b.medal4Avg)[0];
-  const lX=[...all].sort((a,b)=>b.mixed-a.mixed)[0];
+  const lX=[...all].sort((a,b)=>b.mixed4-a.mixed4)[0];
   
-  const playedDates = Object.keys(FD).map(Number).sort((a,b)=>b-a);
+  const playedDates = Object.keys(FD).map(Number).filter(n=>(n!==99||IS_TEST_MODE)&&fechaCourseOk(n)).sort((a,b)=>b-a);
   const latestFn = playedDates.length > 0 ? playedDates[0] : 1;
   const nextDate = SCHED.find(s => s.status === 'upcoming');
   const nextDateStr = nextDate ? formatDate(nextDate.date) : 'TBD';
@@ -1563,16 +1611,16 @@ function rDash(el){
     </button>
   </div>
   <div class="mg">
-    <div class="mc"><div class="ml">Fechas jugadas</div><div class="mv">${SCHED.filter(s => s.status === 'played' && s.num !== 99).length}<span style="font-size:16px;color:var(--txm)"> / 6</span></div><div class="ms">Próxima: ${nextDateStr}</div></div>
-    <div class="mc"><div class="ml">Líder Stableford</div><div class="mv" style="font-size:18px">${lS?.p.short||'—'}</div><div class="ms">${lS?lS.stb+' pts acum.':''}</div></div>
+    <div class="mc"><div class="ml">Fechas jugadas</div><div class="mv">${SCHED.filter(s => s.status === 'played' && s.num !== 99).length}<span style="font-size:16px;color:var(--txm)"> / ${SCHED.filter(s => s.num !== 99).length}</span></div><div class="ms">Próxima: ${nextDateStr}</div></div>
+    <div class="mc"><div class="ml">Líder Stableford</div><div class="mv" style="font-size:18px">${lS?.p.short||'—'}</div><div class="ms">${lS?lS.stb4+' pts':''}</div></div>
     <div class="mc"><div class="ml">Líder Medal</div><div class="mv" style="font-size:18px">${lM?.p.short||'—'}</div><div class="ms">${lM?lM.medal4Avg+' neto prom.':''}</div></div>
-    <div class="mc"><div class="ml">Líder Mixto</div><div class="mv" style="font-size:18px">${lX?.p.short||'—'}</div><div class="ms">${lX?lX.mixed+' pts acum.':''}</div></div>
+    <div class="mc"><div class="ml">Líder Mixto</div><div class="mv" style="font-size:18px">${lX?.p.short||'—'}</div><div class="ms">${lX?lX.mixed4+' pts':''}</div></div>
   </div>
   <div class="g2" style="margin-bottom:24px">
     <div class="card">
       <div class="ct">Ranking Stableford (Fecha ${latestFn})</div>
       <table><thead><tr><th>#</th><th>Jugador</th><th>STB</th><th>Lag</th><th>Pts</th></tr></thead><tbody>
-      ${[...all].sort((a,b)=>b.stb-a.stb).slice(0,6).map((r,i)=>{
+      ${[...all].sort((a,b)=>b.stb4-a.stb4).slice(0,6).map((r,i)=>{
         const fr=getFechaResults(latestFn).find(x=>x.pid==r.pid);
         const isLive = fr && !fr.isOfficial;
         return `<tr class="${i<3?'hl':''}" style="${isLive ? 'border-left: 3px solid #10B981; background:#f0fdf4;' : ''}">
@@ -1585,16 +1633,16 @@ function rDash(el){
           </td>
           <td style="font-family:'DM Mono',monospace">${fr?.stb??'—'}</td>
           <td>${ptb(r.lag)}</td>
-          <td>${ptb(r.stb)}</td>
+          <td>${ptb(r.stb4)}</td>
         </tr>`;
       }).join('')}
       </tbody></table>
       <div style="margin-top:12px"><button class="btn btn-s" onclick="nav('ranking')">Ver completo →</button></div>
     </div>
     <div class="card">
-      <div class="ct">Ranking Mixto (STB + Laguneada)</div>
+      <div class="ct">Ranking Mixto (STB + Laguneada + bonus)</div>
       <table><thead><tr><th>#</th><th>Jugador</th><th>STB</th><th>Lag</th><th>Total</th></tr></thead><tbody>
-      ${[...all].sort((a,b)=>b.mixed-a.mixed).slice(0,6).map((r,i)=>`<tr class="${i<3?'hl':''}"><td>${pb(i+1)}</td><td>${r.p.name}</td><td style="font-size:12px">${r.stb}</td><td style="font-size:12px">${r.lag}</td><td>${ptb(r.mixed)}</td></tr>`).join('')}
+      ${[...all].sort((a,b)=>b.mixed4-a.mixed4).slice(0,6).map((r,i)=>`<tr class="${i<3?'hl':''}"><td>${pb(i+1)}</td><td>${esc(r.p.name)}</td><td style="font-size:12px">${r.stb}</td><td style="font-size:12px">${r.lag}</td><td>${ptb(r.mixed4)}</td></tr>`).join('')}
       </tbody></table>
       <div style="margin-top:12px"><button class="btn btn-s" onclick="nav('ranking')">Ver completo →</button></div>
     </div>
@@ -1635,24 +1683,33 @@ function swRT(m,el){
 
 function getAccum(){
   const map={};
-  TP.forEach(p=>{map[p.id]={pid:p.id,p,stb:0,medal:0,lag:0,mixed:0,fechas:0,
-    stbScores:[],medalScores:[],lagScores:[]};});
-  Object.keys(FD).forEach(fn=>{
-    const n=parseInt(fn);
-    getFechaResults(n).filter(r=>!r.isReplace).forEach(r=>{
+  TP.forEach(p=>{map[p.id]={pid:p.id,p,stb:0,medal:0,lag:0,mixed:0,bonus:0,fechas:0,
+    stbScores:[],medalScores:[],lagScores:[],bonusScores:[]};});
+  fechasJugadas().forEach(fn=>{
+    const n=fn;
+    const res=getFechaResults(n).filter(r=>!r.isReplace && cuentaParaRanking(r.sc));
+    res.forEach(r=>{
       if(map[r.pid]){
         map[r.pid].stb+=r.stb;
         map[r.pid].fechas++;
         map[r.pid].stbScores.push({fn:n, pts:r.stb});
+        // Bonus y penalizaciones (H19, approach, no-show…) suman SOLO al Mixto.
+        if(r.bonus) map[r.pid].bonusScores.push({fn:n, pts:r.bonus});
       }
     });
-    getFechaResults(n).filter(r=>!r.isReplace && !r.hasPenalization).forEach(r=>{
+    res.filter(r=>!r.hasPenalization).forEach(r=>{
       if(map[r.pid]){
         map[r.pid].medal+=r.net;
         map[r.pid].medalScores.push({fn:n, net:r.net});
       }
     });
-    getLaguneada(n).forEach(l=>{
+    const lag=getLaguneada(n);
+    // Si alguna línea sigue jugando, la Laguneada de esa fecha todavía no está definida.
+    // Una línea sin ningún hoyo cargado en una fecha no finalizada = la fecha no empezó
+    // (antes se repartían 6/3/0 apenas se armaban las salidas).
+    const jugada=getSched(n)?.status==='played';
+    if(lag.some(l=>l.isLive||(!jugada&&l.completedHolesCount===0))) return;
+    lag.forEach(l=>{
       l.pids.forEach(pid=>{
         if(map[pid]){
           map[pid].lag+=l.lagPts;
@@ -1662,7 +1719,8 @@ function getAccum(){
     });
   });
   Object.values(map).forEach(r=>{
-    r.mixed=+(r.stb+r.lag).toFixed(1);
+    r.bonus=r.bonusScores.reduce((t,x)=>t+x.pts,0);
+    r.mixed=+(r.stb+r.lag+r.bonus).toFixed(1);
 
     // Helper: mejores N (mayor = mejor) sobre array de {fn, pts}
     const bestHigh = (scores) => {
@@ -1684,7 +1742,9 @@ function getAccum(){
     const mixMap = {};
     r.stbScores.forEach(s=>{ mixMap[s.fn]=(mixMap[s.fn]||0)+s.pts; });
     r.lagScores.forEach(l=>{ mixMap[l.fn]=(mixMap[l.fn]||0)+l.pts; });
+    r.bonusScores.forEach(b=>{ mixMap[b.fn]=(mixMap[b.fn]||0)+b.pts; });
     const mixArr = Object.entries(mixMap).map(([fn,pts])=>({fn:parseInt(fn),pts}));
+    r.mixScores = mixArr;
     const mb4 = bestHigh(mixArr);
     r.mixed4 = +mb4.val.toFixed(1); r.mixed4Fns = mb4.fns;
 
@@ -1711,7 +1771,7 @@ function getAccum(){
 function renderRT(mode){
   const el=document.getElementById('RC');
   const all=getAccum();
-  const useBest4 = Object.keys(FD).length >= BEST_MIN_FECHAS;
+  const useBest4 = fechasJugadas().length >= BEST_MIN_FECHAS;
   // En Laguneada se muestra a todos (incluidos invitados). En los demás, no.
   const filtered = mode === 'lag' ? all : all.filter(r => !r.p.isInvitado);
   // Medal ordena por PROMEDIO de los mejores N (menor gana). El resto, por suma (mayor gana).
@@ -1728,7 +1788,7 @@ function renderRT(mode){
     stb:`Stableford: Eagle=4 · Birdie=3 · Par=2 · Bogey=1 · Doble+=0 — ventaja hoyo por hoyo. Se suman los puntos.${best4note}`,
     medal:`Medal: promedio de score neto (gross − hándicap). Menor promedio gana — se promedia, no se suma, para no penalizar a quien juega más fechas.${best4note}`,
     lag:`Laguneada: línea ganadora +6pts · 2da +3pts · 3ra 0pts.${best4note}`,
-    mixed:`Mixto: STB + Laguneada por fecha.${best4note}`
+    mixed:`Mixto: STB + Laguneada + bonus/penalizaciones por fecha (${Object.values(BONUS).map(b=>`${b.label} ${b.pts[0]>0?'+':''}${b.pts[0]}`).join(' · ')}; el doble en fechas dobles).${best4note}`
   };
 
   const get4Fns    = (r) => mode==='stb'?r.stb4Fns : mode==='medal'?r.medal4Fns : mode==='lag'?r.lag4Fns : r.mixed4Fns;
@@ -1756,21 +1816,18 @@ function renderRT(mode){
         const dim   = `text-align:center;font-size:12px;font-family:'DM Mono',monospace;color:var(--txm)`;
         return `<td style="${val.counts?green:dim}">${val.txt}${val.counts?' ✓':''}</td>`;
       };
+      // Valores por fecha salidos de getAccum(): lo que se muestra es exactamente lo que suma.
+      const byFn = (arr, key) => { const m = {}; (arr||[]).forEach(x => { m[x.fn] = x[key]; }); return m; };
+      const vals = mode==='stb' ? byFn(r.stbScores,'pts')
+                 : mode==='medal' ? byFn(r.medalScores,'net')
+                 : mode==='lag' ? byFn(r.lagScores,'pts')
+                 : byFn(r.mixScores,'pts');
       const cells=SCHED.map(s=>{
-        if(!FD[s.num]) return`<td style="text-align:center;color:var(--txm)">—</td>`;
+        const v = vals[s.num];
+        if(v==null) return`<td style="text-align:center;color:var(--txm)">—</td>`;
         const counts = playerBest4 && useBest4 && fns4?.has(s.num);
-        if(mode==='lag'){
-          const lr=getLaguneada(s.num).find(l=>l.pids.includes(r.pid));
-          const lp=lr?.lagPts??null;
-          if(lp==null) return`<td style="text-align:center;color:var(--txm)">—</td>`;
-          return mark({counts, txt: lp>0?'+'+lp:String(lp)});
-        }
-        const fr=getFechaResults(s.num).find(x=>x.pid==r.pid);
-        if(!fr) return`<td style="text-align:center;color:var(--txm)">—</td>`;
-        if(mode==='stb')   return mark({counts, txt: fr.stb});
-        if(mode==='medal') return mark({counts, txt: fr.net});
-        const lr=getLaguneada(s.num).find(l=>l.pids.includes(r.pid));
-        return mark({counts, txt: (fr.stb??0) + (lr?.lagPts??0)});
+        const txt = mode==='lag' ? (v>0?'+'+v:String(v)) : String(+(+v).toFixed(1));
+        return mark({counts, txt});
       }).join('');
 
       const totalCell = mode==='medal'
@@ -1832,7 +1889,12 @@ function stablefordByHoleArr(holes,hcp,par,hdi){
 function rFD(n){
   const el=document.getElementById('FD');
   const fd=FD[n];
-  if(!fd){el.innerHTML=`<div class="alert ai">Sin datos para fecha ${n}. <button class="btn btn-s btn-p" onclick="nav('carga')" style="margin-left:10px">Cargar →</button></div>`;return;}
+  if(!fd){el.innerHTML=`<div class="alert ai">Sin datos para fecha ${n}.${IS_ADMIN?` <button class="btn btn-s btn-p" onclick="nav('carga')" style="margin-left:10px">Cargar →</button>`:''}</div>`;return;}
+  if(!fechaCourseOk(n)){
+    const c=getCourse(fd.course);
+    el.innerHTML=`<div class="alert aw"><strong>No se pueden calcular los resultados de la Fecha ${n}.</strong><br>A la cancha <strong>${esc(c?.name||fd.course||'sin asignar')}</strong> le falta: ${courseProblems(c).join(' y ')}. Completalo en la pestaña <em>canchas</em> de la planilla y sincronizá.</div>`;
+    return;
+  }
   // Verificar fourballs — tolerar claves numéricas y string (localStorage vs API)
   const fbByDate = FOURBALL[n] || FOURBALL[String(n)] || {};
   const hasFourballs = Object.keys(fbByDate).some(ln => {
@@ -2876,7 +2938,7 @@ async function saveF(){
 // JUGADORES
 // ════════════════════════════════════════════════════
 function rJug(el){
-  const tf=Object.keys(FD).length;
+  const tf=fechasJugadas().length;
   const titulares = TP.filter(p => !p.isInvitado);
   const invitados = TP.filter(p => p.isInvitado);
   el.innerHTML=`
@@ -2887,7 +2949,7 @@ function rJug(el){
       const st=getPlayerStats(p.id);
       const cls=['l1b','l2b','bb','ba','bg','bp'][i%6];
       const lastIdx = (() => {
-        const dates = Object.keys(FD).map(Number).sort((a,b)=>b-a);
+        const dates = fechasJugadas().reverse();
         for (const dn of dates) {
           const sc = FD[dn]?.scores?.[p.id];
           const idx = sc ? parseHcpIndex(sc.hcp_index) : null;
@@ -2907,7 +2969,7 @@ function rJug(el){
     }).join('')}${invitados.length ? invitados.map((p,i)=>{
       const st=getPlayerStats(p.id);
       const lastIdx = (() => {
-        const dates = Object.keys(FD).map(Number).sort((a,b)=>b-a);
+        const dates = fechasJugadas().reverse();
         for (const dn of dates) {
           const sc = FD[dn]?.scores?.[p.id];
           const idx = sc ? parseHcpIndex(sc.hcp_index) : null;
@@ -2954,7 +3016,7 @@ function esRondaCompleta(sc){
 // ── Récord: mejor vuelta bruta del torneo (solo titulares) ──────────────
 function getMejorVuelta(){
   let mejor = null;
-  Object.keys(FD).map(Number).forEach(fn => {
+  fechasJugadas().forEach(fn => {
     const fd = FD[fn]; if(!fd) return;
     const cur = getCourse(fd.course);
     Object.entries(fd.scores).forEach(([pid, sc]) => {
@@ -2981,7 +3043,7 @@ function getMejorVuelta(){
 // Agrupa según el par de la cancha de cada fecha, así funciona aunque cambie el campo.
 function getStatsPorPar(pid){
   const acc = {3:{n:0,golpes:0,birdies:0,dobles:0}, 4:{n:0,golpes:0,birdies:0,dobles:0}, 5:{n:0,golpes:0,birdies:0,dobles:0}};
-  Object.keys(FD).map(Number).forEach(fn => {
+  fechasJugadas().forEach(fn => {
     const fd = FD[fn]; if(!fd) return;
     const sc = fd.scores?.[pid]; if(!sc || sc.noShow || !sc.holes) return;
     const cur = getCourse(fd.course);
@@ -3009,11 +3071,12 @@ function getStatsPorPar(pid){
 // vueltas jugadas en campos distintos.
 function getDiferenciales(pid){
   const out = [];
-  Object.keys(FD).map(Number).sort((a,b)=>a-b).forEach(fn => {
+  fechasJugadas().forEach(fn => {
     const fd = FD[fn]; if(!fd) return;
     const sc = fd.scores?.[pid]; if(!sc || sc.noShow) return;
     if(!esRondaCompleta(sc)) return;
     const cur = getCourse(fd.course);
+    if (cur.rating == null || !isCourseComplete(cur)) return; // sin rating no hay diferencial real
     const slope = cur.slope > 0 ? cur.slope : 113;
     const g = gross(sc.holes);
     const dif = +((113 / slope) * (g - cur.rating)).toFixed(1);
@@ -3043,7 +3106,7 @@ function parseHcpIndex(v){
 // Historial de HCP índex por jugador, ordenado por fecha.
 // Fuente: columna hcp_index de la pestaña "resultados" (una lectura por fecha jugada).
 function getHcpHistory(pid){
-  return Object.keys(FD).map(Number).sort((a,b)=>a-b)
+  return fechasJugadas()
     .map(fn => {
       const sc = FD[fn]?.scores?.[pid];
       const idx = sc ? parseHcpIndex(sc.hcp_index) : null;
@@ -3084,7 +3147,7 @@ function pctColor(pct){
 function rST(mode){
   const el=document.getElementById('SC');
   const rows=TP.map(p=>({p,st:getPlayerStats(p.id)})).filter(r=>r.st.rounds>0);
-  const tf=Object.keys(FD).length||1;
+  const tf=fechasJugadas().length||1;
 
   if(mode==='gen'){
     const totalHoles=rows.reduce((s,r)=>s+r.st.rounds*18,0);
@@ -3251,7 +3314,7 @@ function rST(mode){
 
     if(!filas.length){ el.innerHTML=`<div class="alert ai">Se necesita al menos una vuelta completa (18 hoyos cargados) para calcular el diferencial.</div>`; return; }
 
-    const fechas = Object.keys(FD).map(Number).sort((a,b)=>a-b);
+    const fechas = fechasJugadas();
     const colIdx = (v) => v==null?'var(--txm)':v<0?'var(--g6)':v<2?'var(--a6)':'var(--r8)';
     const conIdxTodos = filas.filter(f=>f.vsIdxProm!=null);
     const cumplidor = conIdxTodos.length ? [...conIdxTodos].sort((a,b)=>a.vsIdxProm-b.vsIdxProm)[0] : null;
@@ -3286,7 +3349,7 @@ function rST(mode){
 
   } else if(mode==='hcp'){
     // ── EVOLUCIÓN DEL HCP ÍNDEX ──────────────────────────────
-    const fechas = Object.keys(FD).map(Number).sort((a,b)=>a-b);
+    const fechas = fechasJugadas();
     const filas = TP.map(p=>{
       const hist = getHcpHistory(p.id);
       if(!hist.length) return null;
@@ -3392,7 +3455,7 @@ function rCanchas(el){
     const pi=c.par.slice(0,9).reduce((a,b)=>a+b,0);
     const pv=c.par.slice(9).reduce((a,b)=>a+b,0);
     return`<div class="card" style="margin-bottom:20px">
-      <div class="sh"><h2>${c.name}</h2><div style="display:flex;gap:8px"><span class="bdg bgr">Par ${pt}</span><span class="bdg bb">Slope ${c.slope}</span><span class="bdg bg">Rating ${c.rating}</span></div></div>
+      <div class="sh"><h2>${c.name}</h2><div style="display:flex;gap:8px"><span class="bdg bgr">Par ${pt}</span><span class="bdg bb">Slope ${c.slope}</span><span class="bdg bg">Rating ${c.rating ?? '—'}</span>${isCourseComplete(c)?'':'<span class="bdg br">Datos incompletos</span>'}</div></div>
       <div class="sct"><table>
         <thead><tr><th>Hoyo</th>${c.par.map((_,i)=>`<th>${i+1}</th>`).join('')}<th>IDA</th><th>VTA</th><th>TOT</th></tr></thead>
         <tbody>
@@ -3930,7 +3993,7 @@ async function activatePlumas(dateNum, lineNum) {
   const myPid = livePlayerId;
   if (!myPid) { alert('Primero seleccion\u00e1 tu jugador en Anotar en Vivo.'); return; }
   try {
-    const res = await callAPI({ action: 'activatePlumas', dateNum, lineNum, playerId: myPid, pin });
+    const res = await golfApiFetch({ action: 'activatePlumas', dateNum, lineNum, playerId: myPid, pin }, { silent: true });
     if (!res.success) { alert('Error: ' + res.error); return; }
     // Actualizar estado local
     if (!PLUMAS[dateNum]) PLUMAS[dateNum] = {};
@@ -4374,6 +4437,20 @@ function renderLiveHolesPager() {
   const fd = FD[liveDateNum];
   const courseId = fd ? fd.course : sched.course;
   const c = getCourse(courseId);
+
+  // 3. Validar que la cancha tenga par y HDI de los 18 hoyos (si no, todo daría NaN).
+  if (!c || c.id !== courseId || !isCourseComplete(c)) {
+    container.innerHTML = `
+      <div class="alert aw" style="margin-top:20px;padding:24px;text-align:center;border-radius:var(--radl);border-left:4px solid var(--r8);">
+        <div style="font-size:32px;margin-bottom:4px;">📋</div>
+        <div style="font-weight:700;font-size:16px;color:var(--r8);">Faltan los datos de la cancha</div>
+        <div style="font-size:13px;color:var(--tx2);line-height:1.5;max-width:460px;margin:8px auto 0;">
+          A <strong>${esc(c && c.id === courseId ? c.name : courseId)}</strong> le falta: ${courseProblems(c && c.id === courseId ? c : null).join(' y ')}.<br>
+          El administrador tiene que completarlo en la planilla (pestaña <em>canchas</em>) antes de anotar.
+        </div>
+      </div>`;
+    return;
+  }
   
   // Build scorecard table (IDA: 1-9, VUELTA: 10-18)
   let scorecardHtml = '';
@@ -4432,13 +4509,14 @@ function renderLiveHolesPager() {
   const vsPar = playedHolesCount > 0 ? (liveGross - c.par.slice(0, 18).reduce((sum, pVal, idx) => sum + (liveHoles[idx] > 0 ? pVal : 0), 0)) : 0;
   const vsParStr = vsPar === 0 ? 'E' : vsPar > 0 ? `+${vsPar}` : `${vsPar}`;
 
-  let syncStatusText = 'Guardado';
+  const pendingCount = liveQueueCount();
+  let syncStatusText = 'Guardado en la nube';
   let syncStatusColor = 'var(--g7)';
   if (syncStatus === 'syncing') {
     syncStatusText = 'Sincronizando con Google Sheets...';
     syncStatusColor = 'var(--a6)';
-  } else if (syncStatus === 'error') {
-    syncStatusText = 'Guardado en local. Reintentando...';
+  } else if (syncStatus === 'error' || (pendingCount > 0 && syncStatus !== 'syncing')) {
+    syncStatusText = `Sin conexión: ${pendingCount} tarjeta${pendingCount === 1 ? '' : 's'} guardada${pendingCount === 1 ? '' : 's'} en el teléfono. Se envía sola al volver la señal.`;
     syncStatusColor = 'var(--r8)';
   } else if (syncStatus === 'idle') {
     syncStatusText = 'Listo para anotar';
@@ -4584,8 +4662,8 @@ function finalizeLiveRound() {
   liveFinished = true;
   const finPid = liveScoringForId || livePlayerId;
   storage.set('golf_live_finished_' + liveDateNum + '_' + finPid, 'true');
+  triggerLiveSync(true);
   renderLiveHolesPager();
-  triggerLiveSync();
 }
 
 function editLiveRound() {
@@ -4617,15 +4695,15 @@ function adjustLiveScore(diff) {
   if (cur > 15) cur = 15;
   
   liveHoles[liveHole - 1] = cur;
-  renderLiveHolesPager();
   triggerLiveSync();
+  renderLiveHolesPager();
 }
 
 function setLiveScoreVal(val) {
   liveHoles[liveHole - 1] = val;
   if (val === 0) livePutts[liveHole - 1] = 0; // Reset putts if score cleared
-  renderLiveHolesPager();
   triggerLiveSync();
+  renderLiveHolesPager();
 }
 
 function adjustLivePutt(diff) {
@@ -4634,14 +4712,14 @@ function adjustLivePutt(diff) {
   if (cur < 0) cur = 0;
   if (cur > 10) cur = 10;
   livePutts[liveHole - 1] = cur;
-  renderLiveHolesPager();
   triggerLiveSync();
+  renderLiveHolesPager();
 }
 
 function setLivePuttVal(val) {
   livePutts[liveHole - 1] = val;
-  renderLiveHolesPager();
   triggerLiveSync();
+  renderLiveHolesPager();
 }
 
 function onLiveHcpIndexChange(val) {
@@ -4651,18 +4729,17 @@ function onLiveHcpIndexChange(val) {
 
 function onLiveHcpJuegoChange(val) {
   liveHcpJuego = parseFloat(val) || 0;
-  renderLiveHolesPager();
   triggerLiveSync();
+  renderLiveHolesPager();
 }
 
 
 function switchScoringFor(pid) {
-  // Save current player's data first
-  if (liveScoringForId && liveScoringForId !== pid) {
-    triggerLiveSync(); // force sync current
-  }
+  // Los cambios del jugador actual ya están en la cola (foto tomada al anotar):
+  // solo se adelanta el envío en lugar de esperar el debounce.
+  if (liveSyncTimeout) { clearTimeout(liveSyncTimeout); liveSyncTimeout = null; flushLiveQueue(); }
   
-  liveScoringForId = typeof pid === 'number' ? pid : parseInt(pid);
+  liveScoringForId = (typeof pid === 'number' || isNaN(pid)) ? pid : parseInt(pid);
   
   // Load the target player's existing scores
   const fd = FD[liveDateNum];
@@ -4684,66 +4761,122 @@ function switchScoringFor(pid) {
   renderLiveHolesPager();
 }
 
-function triggerLiveSync() {
+// ════════════════════════════════════════════════════
+// GUARDADO EN VIVO CON COLA OFFLINE
+// Cada cambio se guarda al instante en una cola persistente (localStorage) y se
+// envía al servidor con reintentos. La cola es solo de salida: cada entrada se
+// borra en cuanto el servidor confirma, así que la API sigue siendo la fuente de verdad.
+// ════════════════════════════════════════════════════
+const LIVE_QUEUE_KEY = 'golf_live_pending';
+let liveFlushing = false;
+let liveRetryTimer = null;
+
+function getLiveQueue() {
+  try { return JSON.parse(storage.get(LIVE_QUEUE_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+function setLiveQueue(q) {
+  if (Object.keys(q).length) storage.set(LIVE_QUEUE_KEY, JSON.stringify(q));
+  else storage.remove(LIVE_QUEUE_KEY);
+}
+function liveQueueCount() { return Object.keys(getLiveQueue()).length; }
+
+// Reaplica sobre FD lo que todavía no llegó al servidor (tras cada descarga desde Sheets).
+function applyLiveQueueToFD() {
+  const q = getLiveQueue();
+  Object.values(q).forEach(e => {
+    const fd = FD[e.dateNum];
+    if (!fd) return;
+    const prev = fd.scores[e.playerId] || {
+      h19: false, approach: false, hoyoEnUno: false, noApp: false, noCard: false, abandon: false, noShow: false,
+      name: e.name || getPlayer(e.playerId)?.name || 'Jugador En Vivo',
+      isReplace: e.isReplace || false
+    };
+    fd.scores[e.playerId] = { ...prev, hcp: e.handicap, hcp_index: e.hcp_index, holes: [...e.holes], putts: [...e.putts], is_official: false };
+  });
+}
+
+// immediate=true envía ya (p. ej. al cambiar de jugador); si no, espera 1,2 s para agrupar toques.
+function triggerLiveSync(immediate) {
   const fd = FD[liveDateNum];
-  // IMPORTANTE: scoringPid debe estar en el scope de la función para que el setTimeout lo vea
   const scoringPid = liveScoringForId || livePlayerId;
+  if (!scoringPid || !liveDateNum) return;
+  const sp = getPlayer(scoringPid);
+
+  // Foto de los datos EN ESTE MOMENTO. Antes se leían dentro del setTimeout y, si
+  // en el medio se cambiaba de jugador, se guardaban los golpes de uno con el ID de otro.
+  const entry = {
+    dateNum: liveDateNum,
+    playerId: scoringPid,
+    handicap: liveHcpJuego ?? sp?.hcp ?? 0,
+    hcp_index: liveHcpIndex ?? sp?.hcp ?? 0,
+    holes: [...liveHoles],
+    putts: [...livePutts],
+    name: sp?.name || '',
+    isReplace: sp?.isReplace || false,
+    ts: Date.now()
+  };
+
   if (fd) {
-    if (!fd.scores[scoringPid]) {
-      const p = getPlayer(livePlayerId);
-      const sp = getPlayer(scoringPid);
-      fd.scores[scoringPid] = {
-        hcp: liveHcpJuego ?? sp?.hcp ?? 0,
-        hcp_index: liveHcpIndex ?? sp?.hcp ?? 0,
-        holes: [...liveHoles],
-        putts: [...livePutts],
-        h19: false, approach: false, hoyoEnUno: false, noApp: false, noCard: false, abandon: false, noShow: false,
-        name: sp?.name || 'Jugador En Vivo',
-        isReplace: sp?.isReplace || false,
-        is_official: false
-      };
-    } else {
-      fd.scores[scoringPid].holes = [...liveHoles];
-      fd.scores[scoringPid].putts = [...livePutts];
-      fd.scores[scoringPid].is_official = false;
-    }
+    const prev = fd.scores[scoringPid];
+    fd.scores[scoringPid] = prev
+      ? { ...prev, hcp: entry.handicap, hcp_index: entry.hcp_index, holes: [...entry.holes], putts: [...entry.putts], is_official: false }
+      : {
+          hcp: entry.handicap, hcp_index: entry.hcp_index, holes: [...entry.holes], putts: [...entry.putts],
+          h19: false, approach: false, hoyoEnUno: false, noApp: false, noCard: false, abandon: false, noShow: false,
+          name: entry.name || 'Jugador En Vivo', isReplace: entry.isReplace, is_official: false
+        };
   }
 
-  if (liveSyncTimeout) clearTimeout(liveSyncTimeout);
-  
-  if (!APPS_SCRIPT_URL) {
-    syncStatus = 'idle';
-    return;
-  }
-  
+  if (!APPS_SCRIPT_URL) { syncStatus = 'idle'; return; }
+
+  const q = getLiveQueue();
+  q[liveDateNum + '_' + scoringPid] = entry;
+  setLiveQueue(q);
+
   syncStatus = 'syncing';
-  renderLiveHolesPager();
-  
-  liveSyncTimeout = setTimeout(async () => {
-    try {
-      const p = getPlayer(livePlayerId);
-      const data = await golfApiFetch({
-          action: 'saveLiveScore',
-          dateNum: liveDateNum,
-          playerId: scoringPid,
-          handicap: liveHcpJuego ?? p?.hcp ?? 0,
-          hcp_index: liveHcpIndex ?? p?.hcp ?? 0,
-          holes: liveHoles,
-          putts: livePutts
-        });
-      if (data.success) {
-        syncStatus = 'success';
-      } else {
-        syncStatus = 'error';
-        console.error("Live sync failed:", data.error);
-      }
-    } catch (err) {
-      syncStatus = 'error';
-      console.error("Connection error syncing score:", err);
-    }
-    renderLiveHolesPager();
-  }, 1200);
+  if (liveSyncTimeout) clearTimeout(liveSyncTimeout);
+  if (immediate) flushLiveQueue();
+  else liveSyncTimeout = setTimeout(flushLiveQueue, 1200);
 }
+
+async function flushLiveQueue() {
+  if (liveFlushing || !APPS_SCRIPT_URL) return;
+  liveFlushing = true;
+  if (liveRetryTimer) { clearTimeout(liveRetryTimer); liveRetryTimer = null; }
+  let failed = false;
+  try {
+    for (const [key, e] of Object.entries(getLiveQueue())) {
+      try {
+        const data = await golfApiFetch({
+          action: 'saveLiveScore',
+          dateNum: e.dateNum,
+          playerId: e.playerId,
+          handicap: e.handicap,
+          hcp_index: e.hcp_index,
+          holes: e.holes,
+          putts: e.putts
+        }, { silent: true });
+        if (!data.success) { failed = true; console.error('Live sync failed:', data.error); continue; }
+        // Borrar solo si nadie la modificó mientras viajaba.
+        const cur = getLiveQueue();
+        if (cur[key] && cur[key].ts === e.ts) { delete cur[key]; setLiveQueue(cur); }
+      } catch (err) {
+        failed = true;
+        console.warn('Sin conexión, se reintenta más tarde:', err.message);
+        break; // sin red no tiene sentido probar el resto
+      }
+    }
+  } finally {
+    liveFlushing = false;
+  }
+  const pending = liveQueueCount();
+  syncStatus = pending === 0 ? 'success' : (failed ? 'error' : 'syncing');
+  if (pending > 0) liveRetryTimer = setTimeout(flushLiveQueue, failed ? 15000 : 500);
+  if (CUR === 'live' && document.getElementById('live-scorecard-container')) renderLiveHolesPager();
+}
+
+window.addEventListener('online', flushLiveQueue);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) flushLiveQueue(); });
 
 let selectedCoordDateNum = null;
 let FOURBALL = (() => { try { const d=storage.get('golf_fourball'); return d ? JSON.parse(d) : {}; } catch(e){ return {}; } })(); // { [dateNum]: { [lineNum]: { teamA, teamB } } }
@@ -6058,7 +6191,7 @@ function getPlayerGap(pid) {
   if (!p) return { gap: 999, fechas: 0, avgGross: 0, hcp: 0 };
   
   let totalGap = 0, fechas = 0;
-  Object.keys(FD).forEach(fn => {
+  fechasJugadas().forEach(fn => {
     const fd = FD[fn];
     const sc = fd.scores[pid];
     if (!sc || sc.noShow || sc.noCard || sc.abandon || !sc.holes) return;
@@ -6517,6 +6650,8 @@ if ('serviceWorker' in navigator) {
 cargarDesdeGoogleSheets().then(() => {
   updateNavUI();
   nav('dashboard');
+  // Si quedaron golpes sin enviar de una sesión anterior (app cerrada sin señal), mandarlos ahora.
+  if (liveQueueCount() > 0) flushLiveQueue();
 });
 </script>
 </body>
