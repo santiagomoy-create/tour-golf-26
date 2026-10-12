@@ -3,9 +3,9 @@
 App de gestión de un torneo de golf anual entre amigos. 12 jugadores titulares,
 6 fechas de mayo a octubre 2026 en canchas rotativas, más una Ryder Cup en noviembre.
 
-**Estado (sep 2026):** cinco fechas jugadas — F1 Club Náutico San Isidro, F2 Estancias,
-F3 Highland, F4 La Orquídea, F5 Pingüinos. Queda la F6 en Hurlingham, con puntos dobles.
-Como ya hay jugadores con cinco rondas, la regla de "mejores 4" está activa.
+**Estado (oct 2026):** seis fechas jugadas — F1 Club Náutico San Isidro, F2 Estancias,
+F3 Highland, F4 La Orquídea, F5 Pingüinos, F6 Hurlingham (fecha doble). La regla de
+"mejores 4" está activa.
 
 ## Arquitectura
 
@@ -296,14 +296,11 @@ Antes de dar por buena una modificación:
 
 El código tolera canchas sin datos, pero calcula mal con ellas:
 
-- **Hurlingham (`HU`)**, la cancha de la F6, no tiene par, hdi, slope ni rating.
-  `String(c.par || "").split(",").map(Number)` devuelve `[NaN]`, así que en cuanto se
-  cargue esa fecha los cálculos van a salir mal. Hay que completarla antes de jugarla.
-- **La Orquídea (`OR`)** no tiene rating. El código cae al default de 72, que es un
-  número inventado, y con eso el diferencial de la F4 queda mal calculado.
+- **Hurlingham (`HU`)**, la cancha de la F6, ya tiene par (70) y HDI, pero no slope ni
+  rating: la F6 no tiene diferencial en Estadísticas hasta que se completen.
+- **La Orquídea (`OR`)** no tiene rating: la F4 no tiene diferencial (antes se inventaba 72).
 
-Vale la pena que la app avise cuando una cancha está incompleta, en vez de seguir de
-largo con valores por defecto.
+Sin par/HDI completos la app avisa y no calcula esa fecha (`courseProblems()`).
 
 ## Deploy
 
