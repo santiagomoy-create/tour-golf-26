@@ -829,7 +829,8 @@ function procesarDatosPlanilla(payload) {
       date: s.date,
       course: s.course_id || null,
       status: s.status,
-      doble: s.is_double === true || String(s.is_double).toUpperCase() === "TRUE",
+      // Casilla de verificación en Sheets (true). Se aceptan también 1 / "SI" / "X" escritos a mano.
+      doble: s.is_double === true || s.is_double === 1 || ["TRUE", "1", "SI", "SÍ", "X"].includes(String(s.is_double ?? "").trim().toUpperCase()),
       deadline: s.confirm_deadline || null,
       approachHole: s.approach_hole ? Number(s.approach_hole) : null,
       longdriveHole: s.longdrive_hole ? Number(s.longdrive_hole) : null
@@ -1111,6 +1112,13 @@ const BONUS={
   abandon:   {label:'Abandono',            pts:[-3,-6]},
   noShow:    {label:'No se presenta',      pts:[-4,-8]},
 };
+
+// Fecha doble (flag is_double de la pestaña calendario): es UNA fecha que vale por dos.
+// En los rankings anuales: STB y Laguneada de esa fecha se multiplican; en Medal, si queda
+// entre los netos elegidos, pesa MULT_FECHA_DOBLE en el promedio. Los BONUS ya traen su
+// valor de fecha doble y NO se vuelven a multiplicar.
+const MULT_FECHA_DOBLE = 2;
+function pesoFecha(fn){ return getSched(fn)?.doble ? MULT_FECHA_DOBLE : 1; }
 
 // Regla "mejores N de M": desde BEST_MIN_FECHAS fechas jugadas, solo cuentan
 // las BEST_N mejores de cada jugador. Aplica a STB, Medal, Laguneada y Mixto.
@@ -1768,20 +1776,23 @@ function getAccum(){
     stbScores:[],medalScores:[],lagScores:[],bonusScores:[]};});
   fechasJugadas().forEach(fn=>{
     const n=fn;
+    const w=pesoFecha(n); // 2 en la fecha doble
     const res=getFechaResults(n).filter(r=>!r.isReplace && cuentaParaRanking(r.sc));
     res.forEach(r=>{
       if(map[r.pid]){
-        map[r.pid].stb+=r.stb;
+        map[r.pid].stb+=r.stb*w;
         map[r.pid].fechas++;
-        map[r.pid].stbScores.push({fn:n, pts:r.stb});
+        // La fecha doble entra como UNA sola fecha en "mejores N", con el valor ya multiplicado.
+        map[r.pid].stbScores.push({fn:n, pts:r.stb*w, w});
         // Bonus y penalizaciones (H19, approach, no-show…) suman SOLO al Mixto.
+        // getFechaResults ya los trae con el valor de fecha doble: no multiplicar de nuevo.
         if(r.bonus) map[r.pid].bonusScores.push({fn:n, pts:r.bonus});
       }
     });
     res.filter(r=>!r.hasPenalization).forEach(r=>{
       if(map[r.pid]){
-        map[r.pid].medal+=r.net;
-        map[r.pid].medalScores.push({fn:n, net:r.net});
+        // Medal no se multiplica: se guarda el neto real y el peso para el promedio.
+        map[r.pid].medalScores.push({fn:n, net:r.net, w});
       }
     });
     const lag=getLaguneada(n);
@@ -1793,8 +1804,8 @@ function getAccum(){
     lag.forEach(l=>{
       l.pids.forEach(pid=>{
         if(map[pid]){
-          map[pid].lag+=l.lagPts;
-          map[pid].lagScores.push({fn:n, pts:l.lagPts});
+          map[pid].lag+=l.lagPts*w;
+          map[pid].lagScores.push({fn:n, pts:l.lagPts*w, w});
         }
       });
     });
@@ -1832,16 +1843,20 @@ function getAccum(){
     // Medal — PROMEDIO de los mejores N netos (menor = mejor).
     // Se promedia y no se suma: con suma, quien juega menos fechas acumula menos
     // y quedaría primero automáticamente.
+    // Fecha doble: se elige por neto como cualquier otra (una sola entrada) y, si queda
+    // entre las elegidas, pesa MULT_FECHA_DOBLE: (2 × neto F6 + otros 3) / 5.
     if (r.medalScores.length > 0) {
       const sel = r.medalScores.length >= BEST_MIN_FECHAS
         ? [...r.medalScores].sort((a,b)=>a.net-b.net).slice(0, BEST_N)
         : r.medalScores;
+      const promPonderado = (arr) => arr.reduce((t,x)=>t+x.net*x.w,0) / arr.reduce((t,x)=>t+x.w,0);
       r.medal4Fns = new Set(sel.map(x=>x.fn));
-      r.medal4    = sel.reduce((t,x)=>t+x.net,0);
-      r.medal4Avg = +(r.medal4 / sel.length).toFixed(2);
-      // Promedio sobre todas las fechas, sin descarte (columna de referencia).
-      // Divide por medalScores.length y no por r.fechas, que incluye penalizadas.
-      r.medalAvg  = +(r.medal / r.medalScores.length).toFixed(2);
+      r.medal4    = sel.reduce((t,x)=>t+x.net*x.w,0);
+      r.medal4Avg = +promPonderado(sel).toFixed(2);
+      // Promedio sobre todas las fechas, sin descarte (columna de referencia), con el mismo peso.
+      // Usa medalScores y no r.fechas, que incluye penalizadas.
+      r.medal     = r.medalScores.reduce((t,x)=>t+x.net*x.w,0);
+      r.medalAvg  = +promPonderado(r.medalScores).toFixed(2);
     } else {
       r.medal4Fns = new Set(); r.medal4 = 0; r.medal4Avg = 9999; r.medalAvg = 9999;
     }
@@ -1865,11 +1880,14 @@ function renderRT(mode){
   const best4note = useBest4
     ? ` ✅ <strong>Mejores ${BEST_N}</strong> desde ${BEST_MIN_FECHAS} fechas jugadas — las que cuentan van marcadas en verde.`
     : ` A partir de ${BEST_MIN_FECHAS} fechas jugadas se tomarán las mejores ${BEST_N}.`;
+  const fechasDobles = SCHED.filter(s => s.doble && s.num !== 99).map(s => 'F' + s.num);
+  const M = MULT_FECHA_DOBLE;
+  const dobleNote = (txt) => fechasDobles.length ? ` 🔁 <strong>${fechasDobles.join(', ')} vale${fechasDobles.length > 1 ? 'n' : ''} ${M}x</strong>: ${txt}` : '';
   const descMap={
-    stb:`Stableford: Eagle=4 · Birdie=3 · Par=2 · Bogey=1 · Doble+=0 — ventaja hoyo por hoyo. Se suman los puntos.${best4note}`,
-    medal:`Medal: promedio de score neto (gross − hándicap). Menor promedio gana — se promedia, no se suma, para no penalizar a quien juega más fechas.${best4note}`,
-    lag:`Laguneada: línea ganadora +6pts · 2da +3pts · 3ra 0pts.${best4note}`,
-    mixed:`Mixto: STB + Laguneada + bonus/penalizaciones por fecha (${Object.values(BONUS).map(b=>`${b.label} ${b.pts[0]>0?'+':''}${b.pts[0]}`).join(' · ')}; el doble en fechas dobles).${best4note}`
+    stb:`Stableford: Eagle=4 · Birdie=3 · Par=2 · Bogey=1 · Doble+=0 — ventaja hoyo por hoyo. Se suman los puntos.${dobleNote(`sus puntos se multiplican por ${M} y cuentan como una sola fecha.`)}${best4note}`,
+    medal:`Medal: promedio de score neto (gross − hándicap). Menor promedio gana — se promedia, no se suma, para no penalizar a quien juega más fechas.${dobleNote(`si su neto queda entre los elegidos, pesa ${M} en el promedio.`)}${best4note}`,
+    lag:`Laguneada: línea ganadora +${PTS_L[1]}pts · 2da +${PTS_L[2]}pts · 3ra ${PTS_L[3]}pts.${dobleNote(`+${PTS_L[1]*M} · +${PTS_L[2]*M} · ${PTS_L[3]*M}.`)}${best4note}`,
+    mixed:`Mixto: STB + Laguneada + bonus/penalizaciones por fecha (${Object.values(BONUS).map(b=>`${b.label} ${b.pts[0]>0?'+':''}${b.pts[0]}`).join(' · ')}).${dobleNote(`STB ×${M} + Laguneada ×${M} + bonus de fecha doble (${Object.values(BONUS).map(b=>`${b.label} ${b.pts[1]>0?'+':''}${b.pts[1]}`).join(' · ')}).`)}${best4note}`
   };
 
   const get4Fns    = (r) => mode==='stb'?r.stb4Fns : mode==='medal'?r.medal4Fns : mode==='lag'?r.lag4Fns : r.mixed4Fns;
@@ -1884,7 +1902,7 @@ function renderRT(mode){
   <div class="alert ai" style="font-size:12px">${descMap[mode]}</div>
   <div class="card" style="padding:0"><div class="tw sticky1"><table>
     <thead><tr><th>#</th><th>Jugador</th><th>HCP</th><th>Rondas</th>
-    ${SCHED.map(s=>`<th style="text-align:center">F${s.num}${s.doble?' 2x':''}</th>`).join('')}
+    ${SCHED.map(s=>`<th style="text-align:center">F${s.num}${s.doble?` ${MULT_FECHA_DOBLE}x`:''}</th>`).join('')}
     <th style="text-align:center">${totLabel}</th>${useBest4?`<th style="text-align:center;color:var(--g8)">${b4Label}</th>`:''}</tr></thead>
     <tbody>${sorted.map((r,i)=>{
       const fns4 = get4Fns(r);
@@ -1895,7 +1913,8 @@ function renderRT(mode){
       const mark = (val) => {
         const green = `text-align:center;font-size:12px;font-family:'DM Mono',monospace;font-weight:700;color:var(--g8);background:rgba(34,139,34,0.07);border-radius:4px`;
         const dim   = `text-align:center;font-size:12px;font-family:'DM Mono',monospace;color:var(--txm)`;
-        return `<td style="${val.counts?green:dim}">${val.txt}${val.counts?' ✓':''}</td>`;
+        const x2 = val.doble ? ` <span class="bdg ba" style="font-size:11px;padding:0 5px" title="${mode==='medal' ? `Fecha doble: este neto pesa ${MULT_FECHA_DOBLE} en el promedio` : `Fecha doble: valor ya multiplicado por ${MULT_FECHA_DOBLE}`}">${MULT_FECHA_DOBLE}x</span>` : '';
+        return `<td style="${val.counts?green:dim};white-space:nowrap">${val.txt}${x2}${val.counts?' ✓':''}</td>`;
       };
       // Valores por fecha salidos de getAccum(): lo que se muestra es exactamente lo que suma.
       const byFn = (arr, key) => { const m = {}; (arr||[]).forEach(x => { m[x.fn] = x[key]; }); return m; };
@@ -1908,7 +1927,7 @@ function renderRT(mode){
         if(v==null) return`<td style="text-align:center;color:var(--txm)">—</td>`;
         const counts = playerBest4 && useBest4 && fns4?.has(s.num);
         const txt = mode==='lag' ? (v>0?'+'+v:String(v)) : String(+(+v).toFixed(1));
-        return mark({counts, txt});
+        return mark({counts, txt, doble: pesoFecha(s.num) > 1});
       }).join('');
 
       const totalCell = mode==='medal'

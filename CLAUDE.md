@@ -65,6 +65,23 @@ ya se corrigió una vez; no reintroducirlo.
 **Medal promedia, no suma.** Con suma, quien juega menos fechas acumula menos y queda
 primero automáticamente. El promedio neutraliza eso.
 
+### Fecha doble
+
+La marca el flag `is_double` de la pestaña `calendario` (hoy, la F6). **Nunca fijarla en el
+código por número de fecha.** Es UNA fecha que vale por dos (`MULT_FECHA_DOBLE = 2`,
+`pesoFecha(fn)`), aplicado en `getAccum()`:
+
+| Ranking | Fecha doble |
+|---|---|
+| Stableford | Puntos STB ×2; entra como una sola fecha en "mejores 4". |
+| Laguneada | Puntos de línea ×2 (12/6/0). |
+| Mixto | STB ×2 + Laguneada ×2 + bonus. Los `BONUS` ya traen su valor de fecha doble: **no se vuelven a duplicar.** |
+| Medal | Se eligen los 4 mejores netos como siempre (la fecha doble es una entrada). Si queda elegida, pesa 2: `(2 × neto + otros 3) / 5`. Si no, se descarta como cualquier otra. |
+
+El doble antes estaba atado a los puntos por posición (`PTS_D`), que los rankings anuales ya
+no usan; por eso dejó de sumar. En el detalle por fecha se muestra el valor ya duplicado con
+la marca 2x (en Medal, el neto real con la marca, porque lo que se duplica es el peso).
+
 ### Regla "mejores 4 de N"
 
 Desde que un jugador lleva **5 fechas jugadas**, solo cuentan sus **4 mejores**. Se
