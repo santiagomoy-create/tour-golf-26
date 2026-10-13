@@ -143,7 +143,36 @@ constante `BONUS` de `index.html`, y el texto del ranking se genera desde ahí.
 **no suman a los rankings** — se filtran con `isReplace`. La excepción es la Laguneada,
 donde sí se muestran porque integran una línea.
 
-El hándicap que se usa es el **índex al 100%**, no el 85% que aplican algunos clubes.
+### Hándicap (decisión de la Comisión, oct 2026)
+
+Todos los cálculos usan el **hándicap de juego del club**: el "HCP Medal" de la tarjeta, que es
+la columna `handicap` de `resultados`. **No** se usa el índice redondeado del reglamento 5.2.1.
+`hcp_index` queda solo para estadísticas (pestañas HCP índex y Diferencial).
+
+### Empates y desempates (decisiones de la Comisión, oct 2026)
+
+**Rankings anuales: no se desempatan.** Los empatados comparten posición (1, 1, 3…) con la
+marca "empate" y se listan por apellido, nunca por número de jugador (eso parecía un
+desempate). Vale para los cuatro rankings y para los líderes del dashboard. Helper:
+`posicionesConEmpate()`.
+
+**Ganador de cada fecha (reglamento 6.6.1), en las vistas STB y Medal de la fecha.** Si hay
+empate en el primer puesto, gana el menor neto en los últimos 9 hoyos con hándicap
+proporcional (`hándicap × 9/18`, sin redondear); si sigue, últimos 6 (`× 6/18`); si sigue,
+últimos 3 (`× 3/18`). Tramos en `DESEMPATE_TRAMOS`. Si persiste, o si alguno de los empatados
+no tiene los 18 hoyos, queda empate. Los empates que no son en el primer puesto se muestran
+como empate (tras desempatar al ganador, los demás comparten el 2.º puesto). Los penalizados
+(no-show, abandono, sin tarjeta) no tienen posición. Helpers: `clasificacionFecha()`,
+`desempatePrimero()`. Caso de referencia: F3 STB, Moy, Catalán y Soiza con 32 → gana Soiza
+(últimos 9: Soiza 39,5 · Catalán 40,0 · Moy 41,0).
+
+### Mejor Gross (reglamento 6.3) — estadística, no ranking
+
+En Estadísticas → General. Menor promedio gross de las `MEJOR_GROSS_N` (3) mejores fechas.
+Solo titulares con 3 fechas válidas o más; no cuentan tarjetas con `no_card`, `abandon` ni
+`no_show`, ni vueltas incompletas. No usa "mejores 4" ni la fecha doble. Con la planilla de
+octubre: Pasquinelli 94,00 (89, 92, 101), Garzón 97,33, Catalán 98,00; D'Elía, Baumann y
+Trusso no entran (2 fechas). Helper: `getMejorGross()`.
 
 ---
 
@@ -286,6 +315,9 @@ Antes de dar por buena una modificación:
   en cero: hay que resolver la captura antes de construir la vista.
 - **`HANDOFF.md` tiene la sección 3.3 desactualizada.** Dice que Medal reparte puntos
   por posición. Es falso desde hace varias versiones.
+- **"Pts torneo" en la vista Medal de cada fecha.** Muestra puntos por posición
+  (`PTS_N`/`PTS_D` vía `getFechaRank`, con empates promediados) que ningún ranking anual usa.
+  Pendiente de decidir si se saca.
 - **El desplegable de cancha.** Ya está arreglado con `cSyncFecha()`, pero el patrón a
   evitar es que un formulario no refleje el estado guardado: al guardar escribe encima
   con lo que muestra por defecto.
