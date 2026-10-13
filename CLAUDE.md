@@ -62,6 +62,11 @@ La ventaja se reparte hoyo por hoyo según el orden de dificultad (`hdi`) de la 
 fecha, al ranking anual le suman 36, no los 12 del primer puesto. Esto fue un error que
 ya se corrigió una vez; no reintroducirlo.
 
+**No hay puntos por posición en ninguna parte de la app.** Los del reglamento escrito
+(12/9/7/5/4/3/2/1 y 24/18/14/10/8/6/4/2 en la fecha doble) no los usa ningún ranking. En oct
+2026 se sacó la columna "Pts torneo" de la vista Medal de cada fecha y se borraron
+`getFechaRank`, `assignPts`, `PTS_N` y `PTS_D`. No volver a agregarlos.
+
 **Medal promedia, no suma.** Con suma, quien juega menos fechas acumula menos y queda
 primero automáticamente. El promedio neutraliza eso.
 
@@ -78,8 +83,8 @@ código por número de fecha.** Es UNA fecha que vale por dos (`MULT_FECHA_DOBLE
 | Mixto | STB ×2 + Laguneada ×2 + bonus. Los `BONUS` ya traen su valor de fecha doble: **no se vuelven a duplicar.** |
 | Medal | Se eligen los 4 mejores netos como siempre (la fecha doble es una entrada). Si queda elegida, pesa 2: `(2 × neto + otros 3) / 5`. Si no, se descarta como cualquier otra. |
 
-El doble antes estaba atado a los puntos por posición (`PTS_D`), que los rankings anuales ya
-no usan; por eso dejó de sumar. En el detalle por fecha se muestra el valor ya duplicado con
+El doble antes estaba atado a los puntos por posición (`PTS_D`, ya eliminado), que los
+rankings anuales no usaban; por eso dejó de sumar. En el detalle por fecha se muestra el valor ya duplicado con
 la marca 2x (en Medal, el neto real con la marca, porque lo que se duplica es el peso).
 
 ### Regla "mejores 4 de N"
@@ -315,9 +320,6 @@ Antes de dar por buena una modificación:
   en cero: hay que resolver la captura antes de construir la vista.
 - **`HANDOFF.md` tiene la sección 3.3 desactualizada.** Dice que Medal reparte puntos
   por posición. Es falso desde hace varias versiones.
-- **"Pts torneo" en la vista Medal de cada fecha.** Muestra puntos por posición
-  (`PTS_N`/`PTS_D` vía `getFechaRank`, con empates promediados) que ningún ranking anual usa.
-  Pendiente de decidir si se saca.
 - **El desplegable de cancha.** Ya está arreglado con `cSyncFecha()`, pero el patrón a
   evitar es que un formulario no refleje el estado guardado: al guardar escribe encima
   con lo que muestra por defecto.

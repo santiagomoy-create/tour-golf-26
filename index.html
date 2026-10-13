@@ -1097,9 +1097,6 @@ let SCHED = [
   {num:6,date:'Oct 2026',  course:null, status:'tbd',     doble:true},
 ];
 
-// Puntos por posición
-const PTS_N={1:12,2:9,3:7,4:5,5:4,6:3,7:2,8:1};
-const PTS_D={1:24,2:18,3:14,4:10,5:8,6:6,7:4,8:2};
 // Laguneada: 1ro=6, 2do=3, 3ro=0
 const PTS_L={1:6,2:3,3:0};
 // Bonus y penalizaciones por fecha: [fecha normal, fecha doble]. Suman SOLO al ranking Mixto.
@@ -1257,28 +1254,6 @@ function safeUrl(u){
 }
 
 // ════════════════════════════════════════════════════
-// ASIGNACIÓN DE PUNTOS CON EMPATES
-// ════════════════════════════════════════════════════
-function assignPts(ranked, doble){
-  const pm=doble?PTS_D:PTS_N;
-  const out=[];
-  let i=0;
-  while(i<ranked.length){
-    let j=i;
-    while(j<ranked.length-1&&ranked[j].val===ranked[j+1].val) j++;
-    const tied=ranked.slice(i,j+1);
-    const ptsArr=tied.map((_,k)=>pm[i+k+1]||0);
-    const positives=ptsArr.filter(x=>x>0);
-    const avg=positives.length&&tied.length>1
-      ? Math.round(positives.reduce((a,b)=>a+b,0)/tied.length*10)/10
-      : (pm[i+1]||0);
-    tied.forEach(r=>out.push({...r,pos:i+1,tpts:tied.length>1&&positives.length?avg:(pm[i+1]||0)}));
-    i=j+1;
-  }
-  return out;
-}
-
-// ════════════════════════════════════════════════════
 // RESULTADOS POR FECHA
 // ════════════════════════════════════════════════════
 function getFechaResults(fn){
@@ -1311,33 +1286,6 @@ function getFechaResults(fn){
       isOfficial
     };
   }).filter(Boolean);
-}
-
-function getFechaRank(fn, mode){
-  const res=getFechaResults(fn);
-  const doble=getSched(fn)?.doble||false;
-  const elig=res.filter(r=>!r.isReplace);
-  
-  // Separar jugadores penalizados para que no compitan por puntos de posición
-  const validPlayers = elig.filter(r => !r.hasPenalization);
-  const penalizedPlayers = elig.filter(r => r.hasPenalization);
-  
-  const sorted=mode==='stb'
-    ?[...validPlayers].sort((a,b)=>b.stb-a.stb)
-    :[...validPlayers].sort((a,b)=>a.net-b.net);
-    
-  const ranked=assignPts(sorted.map(r=>({...r,val:mode==='stb'?r.stb:r.net})),doble);
-  
-  // Jugadores penalizados reciben 0 puntos de posición (tpts = 0)
-  const penalizedRanked = penalizedPlayers.map(r => ({
-    ...r,
-    pos: '-',
-    tpts: 0,
-    val: mode === 'stb' ? 0 : 999
-  }));
-  
-  const allRanked = [...ranked, ...penalizedRanked];
-  return allRanked.map(r=>({...r,totalPts:r.tpts+r.bonus}));
 }
 
 // ════════════════════════════════════════════════════
@@ -2234,12 +2182,12 @@ function rFT(mode,fn){
     }).join('')}`;
 
   } else if(mode==='medal'){
-    const cls=clasificacionFecha(getFechaRank(fn,'medal'), r=>r.net, true);
+    const cls=clasificacionFecha(getFechaResults(fn).filter(r=>!r.isReplace), r=>r.net, true);
     const rank=cls.filas.map(o=>o.r);
     el.innerHTML=`
     ${htmlDesempate(cls.desempate,'neto')}
     <div class="card" style="margin-bottom:20px"><div class="tw"><table>
-      <thead><tr><th>Pos</th><th>Jugador</th><th>HCP</th><th>Gross</th><th>Neto</th><th>vs Par</th><th>Bonus</th><th>Pts torneo</th></tr></thead>
+      <thead><tr><th>Pos</th><th>Jugador</th><th>HCP</th><th>Gross</th><th>Neto</th><th>vs Par</th><th>Bonus</th></tr></thead>
       <tbody>${cls.filas.map(o=>{
         const r=o.r;
         const isLive = !r.isOfficial;
@@ -2255,7 +2203,6 @@ function rFT(mode,fn){
           </td>
           <td>${r.sc.hcp}</td><td>${mono(r.gross)}</td><td>${mono(r.net)}</td>
           <td>${vs}</td><td>${r.bonus!==0?ptb(r.bonus):'—'}</td>
-          <td><strong>${ptb(r.totalPts)}</strong></td>
         </tr>`;
       }).join('')}</tbody>
     </table></div></div>
@@ -2275,7 +2222,6 @@ function rFT(mode,fn){
           <div style="display:flex;gap:8px;align-items:center">
             <span style="font-size:12px;color:var(--tx2)">Gross ${r.gross} · Neto ${r.net}</span>
             <span class="bdg ${vp<0?'bg':vp===0?'bgr':'br'}">${vp===0?'E':vp>0?'+'+vp:''+vp}</span>
-            ${ptb(r.totalPts)}
           </div>
         </div>
         <div class="sct"><table style="min-width:660px;font-size:11px">
