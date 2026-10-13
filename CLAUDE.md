@@ -62,6 +62,11 @@ La ventaja se reparte hoyo por hoyo según el orden de dificultad (`hdi`) de la 
 fecha, al ranking anual le suman 36, no los 12 del primer puesto. Esto fue un error que
 ya se corrigió una vez; no reintroducirlo.
 
+**No hay puntos por posición en ninguna parte de la app.** Los del reglamento escrito
+(12/9/7/5/4/3/2/1 y 24/18/14/10/8/6/4/2 en la fecha doble) no los usa ningún ranking. En oct
+2026 se sacó la columna "Pts torneo" de la vista Medal de cada fecha y se borraron
+`getFechaRank`, `assignPts`, `PTS_N` y `PTS_D`. No volver a agregarlos.
+
 **Medal promedia, no suma.** Con suma, quien juega menos fechas acumula menos y queda
 primero automáticamente. El promedio neutraliza eso.
 
@@ -78,8 +83,8 @@ código por número de fecha.** Es UNA fecha que vale por dos (`MULT_FECHA_DOBLE
 | Mixto | STB ×2 + Laguneada ×2 + bonus. Los `BONUS` ya traen su valor de fecha doble: **no se vuelven a duplicar.** |
 | Medal | Se eligen los 4 mejores netos como siempre (la fecha doble es una entrada). Si queda elegida, pesa 2: `(2 × neto + otros 3) / 5`. Si no, se descarta como cualquier otra. |
 
-El doble antes estaba atado a los puntos por posición (`PTS_D`), que los rankings anuales ya
-no usan; por eso dejó de sumar. En el detalle por fecha se muestra el valor ya duplicado con
+El doble antes estaba atado a los puntos por posición (`PTS_D`, ya eliminado), que los
+rankings anuales no usaban; por eso dejó de sumar. En el detalle por fecha se muestra el valor ya duplicado con
 la marca 2x (en Medal, el neto real con la marca, porque lo que se duplica es el peso).
 
 ### Regla "mejores 4 de N"
@@ -143,7 +148,36 @@ constante `BONUS` de `index.html`, y el texto del ranking se genera desde ahí.
 **no suman a los rankings** — se filtran con `isReplace`. La excepción es la Laguneada,
 donde sí se muestran porque integran una línea.
 
-El hándicap que se usa es el **índex al 100%**, no el 85% que aplican algunos clubes.
+### Hándicap (decisión de la Comisión, oct 2026)
+
+Todos los cálculos usan el **hándicap de juego del club**: el "HCP Medal" de la tarjeta, que es
+la columna `handicap` de `resultados`. **No** se usa el índice redondeado del reglamento 5.2.1.
+`hcp_index` queda solo para estadísticas (pestañas HCP índex y Diferencial).
+
+### Empates y desempates (decisiones de la Comisión, oct 2026)
+
+**Rankings anuales: no se desempatan.** Los empatados comparten posición (1, 1, 3…) con la
+marca "empate" y se listan por apellido, nunca por número de jugador (eso parecía un
+desempate). Vale para los cuatro rankings y para los líderes del dashboard. Helper:
+`posicionesConEmpate()`.
+
+**Ganador de cada fecha (reglamento 6.6.1), en las vistas STB y Medal de la fecha.** Si hay
+empate en el primer puesto, gana el menor neto en los últimos 9 hoyos con hándicap
+proporcional (`hándicap × 9/18`, sin redondear); si sigue, últimos 6 (`× 6/18`); si sigue,
+últimos 3 (`× 3/18`). Tramos en `DESEMPATE_TRAMOS`. Si persiste, o si alguno de los empatados
+no tiene los 18 hoyos, queda empate. Los empates que no son en el primer puesto se muestran
+como empate (tras desempatar al ganador, los demás comparten el 2.º puesto). Los penalizados
+(no-show, abandono, sin tarjeta) no tienen posición. Helpers: `clasificacionFecha()`,
+`desempatePrimero()`. Caso de referencia: F3 STB, Moy, Catalán y Soiza con 32 → gana Soiza
+(últimos 9: Soiza 39,5 · Catalán 40,0 · Moy 41,0).
+
+### Mejor Gross (reglamento 6.3) — estadística, no ranking
+
+En Estadísticas → General. Menor promedio gross de las `MEJOR_GROSS_N` (3) mejores fechas.
+Solo titulares con 3 fechas válidas o más; no cuentan tarjetas con `no_card`, `abandon` ni
+`no_show`, ni vueltas incompletas. No usa "mejores 4" ni la fecha doble. Con la planilla de
+octubre: Pasquinelli 94,00 (89, 92, 101), Garzón 97,33, Catalán 98,00; D'Elía, Baumann y
+Trusso no entran (2 fechas). Helper: `getMejorGross()`.
 
 ---
 

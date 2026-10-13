@@ -1097,9 +1097,6 @@ let SCHED = [
   {num:6,date:'Oct 2026',  course:null, status:'tbd',     doble:true},
 ];
 
-// Puntos por posición
-const PTS_N={1:12,2:9,3:7,4:5,5:4,6:3,7:2,8:1};
-const PTS_D={1:24,2:18,3:14,4:10,5:8,6:6,7:4,8:2};
 // Laguneada: 1ro=6, 2do=3, 3ro=0
 const PTS_L={1:6,2:3,3:0};
 // Bonus y penalizaciones por fecha: [fecha normal, fecha doble]. Suman SOLO al ranking Mixto.
@@ -1119,6 +1116,12 @@ const BONUS={
 // valor de fecha doble y NO se vuelven a multiplicar.
 const MULT_FECHA_DOBLE = 2;
 function pesoFecha(fn){ return getSched(fn)?.doble ? MULT_FECHA_DOBLE : 1; }
+
+// Reglamento 6.6.1 — ganador de una fecha con empate en el primer puesto: menor neto en los
+// últimos N hoyos con hándicap proporcional (hándicap × N/18, sin redondear), en este orden.
+const DESEMPATE_TRAMOS = [9, 6, 3];
+// Reglamento 6.3 — Mejor Gross (estadística, no ranking): promedio de las N mejores fechas.
+const MEJOR_GROSS_N = 3;
 
 // Regla "mejores N de M": desde BEST_MIN_FECHAS fechas jugadas, solo cuentan
 // las BEST_N mejores de cada jugador. Aplica a STB, Medal, Laguneada y Mixto.
@@ -1251,28 +1254,6 @@ function safeUrl(u){
 }
 
 // ════════════════════════════════════════════════════
-// ASIGNACIÓN DE PUNTOS CON EMPATES
-// ════════════════════════════════════════════════════
-function assignPts(ranked, doble){
-  const pm=doble?PTS_D:PTS_N;
-  const out=[];
-  let i=0;
-  while(i<ranked.length){
-    let j=i;
-    while(j<ranked.length-1&&ranked[j].val===ranked[j+1].val) j++;
-    const tied=ranked.slice(i,j+1);
-    const ptsArr=tied.map((_,k)=>pm[i+k+1]||0);
-    const positives=ptsArr.filter(x=>x>0);
-    const avg=positives.length&&tied.length>1
-      ? Math.round(positives.reduce((a,b)=>a+b,0)/tied.length*10)/10
-      : (pm[i+1]||0);
-    tied.forEach(r=>out.push({...r,pos:i+1,tpts:tied.length>1&&positives.length?avg:(pm[i+1]||0)}));
-    i=j+1;
-  }
-  return out;
-}
-
-// ════════════════════════════════════════════════════
 // RESULTADOS POR FECHA
 // ════════════════════════════════════════════════════
 function getFechaResults(fn){
@@ -1305,33 +1286,6 @@ function getFechaResults(fn){
       isOfficial
     };
   }).filter(Boolean);
-}
-
-function getFechaRank(fn, mode){
-  const res=getFechaResults(fn);
-  const doble=getSched(fn)?.doble||false;
-  const elig=res.filter(r=>!r.isReplace);
-  
-  // Separar jugadores penalizados para que no compitan por puntos de posición
-  const validPlayers = elig.filter(r => !r.hasPenalization);
-  const penalizedPlayers = elig.filter(r => r.hasPenalization);
-  
-  const sorted=mode==='stb'
-    ?[...validPlayers].sort((a,b)=>b.stb-a.stb)
-    :[...validPlayers].sort((a,b)=>a.net-b.net);
-    
-  const ranked=assignPts(sorted.map(r=>({...r,val:mode==='stb'?r.stb:r.net})),doble);
-  
-  // Jugadores penalizados reciben 0 puntos de posición (tpts = 0)
-  const penalizedRanked = penalizedPlayers.map(r => ({
-    ...r,
-    pos: '-',
-    tpts: 0,
-    val: mode === 'stb' ? 0 : 999
-  }));
-  
-  const allRanked = [...ranked, ...penalizedRanked];
-  return allRanked.map(r=>({...r,totalPts:r.tpts+r.bonus}));
 }
 
 // ════════════════════════════════════════════════════
@@ -1395,6 +1349,94 @@ function getLaguneada(fn){
   
   // Ordenamos por vs (net score vs par) de menor a mayor.
   return results.sort((a,b)=>a.vs-b.vs).map((l,i)=>({...l,pos:i+1,lagPts:PTS_L[i+1]||0}));
+}
+
+// ════════════════════════════════════════════════════
+// EMPATES Y DESEMPATES
+// ════════════════════════════════════════════════════
+// Ordena y asigna posiciones de competición (1, 1, 3…). Los empatados comparten posición y
+// se listan por apellido: el reglamento no desempata los rankings anuales, y ordenarlos por
+// número de jugador (como pasaba antes, sin querer) parecía un desempate.
+// valFn devuelve null para quien no tiene valor (queda al final, sin posición).
+function posicionesConEmpate(items, valFn, menorGana){
+  const EPS = 1e-9;
+  const apellido = x => String(x.p?.short || x.p?.name || x.sc?.name || '');
+  const conValor = items.filter(x => valFn(x) != null);
+  const sinValor = items.filter(x => valFn(x) == null);
+  conValor.sort((a,b) => {
+    const d = menorGana ? valFn(a) - valFn(b) : valFn(b) - valFn(a);
+    return Math.abs(d) > EPS ? d : apellido(a).localeCompare(apellido(b), 'es');
+  });
+  const out = [];
+  conValor.forEach((x,i) => {
+    const prev = out[i-1];
+    const igual = prev && Math.abs(valFn(prev.r) - valFn(x)) <= EPS;
+    out.push({ r: x, pos: igual ? prev.pos : i+1, empate: false });
+  });
+  out.forEach(o => { o.empate = out.filter(q => q.pos === o.pos).length > 1; });
+  return [...out, ...sinValor.map(x => ({ r: x, pos: null, empate: false }))];
+}
+
+function fmtDec(v, min=1, max=2){
+  return Number(v).toLocaleString('es-AR', { minimumFractionDigits: min, maximumFractionDigits: max });
+}
+
+// Neto de los últimos n hoyos con hándicap proporcional (sin redondear).
+function netoUltimos(sc, n){
+  return sc.holes.slice(18 - n).reduce((a,b) => a+b, 0) - sc.hcp * n / 18;
+}
+
+// Reglamento 6.6.1. tied = resultados empatados en el primer puesto.
+// Devuelve { ganador, pasos: [{n, vals:[{r,v}]}], motivo }.
+function desempatePrimero(tied){
+  if (!tied.every(r => esRondaCompleta(r.sc))) return { ganador: null, pasos: [], motivo: 'incompleta' };
+  let vivos = tied; const pasos = [];
+  for (const n of DESEMPATE_TRAMOS) {
+    const vals = vivos.map(r => ({ r, v: netoUltimos(r.sc, n) })).sort((a,b) => a.v - b.v);
+    pasos.push({ n, vals });
+    vivos = vals.filter(x => Math.abs(x.v - vals[0].v) <= 1e-9).map(x => x.r);
+    if (vivos.length === 1) return { ganador: vivos[0], pasos };
+  }
+  return { ganador: null, pasos, motivo: 'persiste' };
+}
+
+// Clasificación de una fecha (vistas STB y Medal). Los penalizados (no-show, abandono,
+// sin tarjeta) no tienen posición. Un empate en el primer puesto se resuelve con
+// desempatePrimero(); los demás empates se muestran como empate.
+function clasificacionFecha(results, valFn, menorGana){
+  const validos = results.filter(r => !r.hasPenalization);
+  const penal = results.filter(r => r.hasPenalization).map(r => ({ r, pos: null, empate: false }));
+  let filas = posicionesConEmpate(validos, valFn, menorGana);
+  const primeros = filas.filter(o => o.pos === 1);
+  let desempate = null;
+  if (primeros.length > 1) {
+    desempate = desempatePrimero(primeros.map(o => o.r));
+    desempate.valor = valFn(primeros[0].r);
+    if (desempate.ganador) {
+      const resto = primeros.filter(o => o.r !== desempate.ganador);
+      const ganador = primeros.find(o => o.r === desempate.ganador);
+      ganador.empate = false; ganador.porDesempate = true;
+      resto.forEach(o => { o.pos = 2; o.empate = resto.length > 1; });
+      filas = [ganador, ...resto, ...filas.filter(o => o.pos !== 1 && !primeros.includes(o))];
+    }
+  }
+  return { filas: [...filas, ...penal], desempate };
+}
+
+// Texto explicativo del desempate del primer puesto, para mostrar arriba de la tabla.
+function htmlDesempate(d, unidad){
+  if (!d) return '';
+  let txt = `<strong>Empate en el primer puesto</strong> (${fmtDec(d.valor,0,2)} ${unidad}). `;
+  if (d.motivo === 'incompleta') return `<div class="alert aw" style="font-size:13px">${txt}Se desempata (reglamento 6.6.1) cuando los empatados terminen los 18 hoyos.</div>`;
+  txt += 'Desempate (reglamento 6.6.1), menor neto con hándicap proporcional: ';
+  txt += d.pasos.map(p => `últimos ${p.n} (hcp × ${p.n}/18): ${p.vals.map(x => `${esc(x.r.p?.short || x.r.sc?.name)} ${fmtDec(x.v)}`).join(' · ')}`).join('; ');
+  txt += d.ganador ? ` → <strong>gana ${esc(d.ganador.p?.short || d.ganador.sc?.name)}</strong>.` : ' → <strong>sigue el empate</strong>.';
+  return `<div class="alert ai" style="font-size:13px">🏆 ${txt}</div>`;
+}
+
+function marcaEmpate(o){
+  if (o.porDesempate) return '<span class="bdg bg" style="font-size:11px" title="Ganador por desempate (reglamento 6.6.1)">🏆 desempate</span>';
+  return o.empate ? '<span class="bdg bgr" style="font-size:11px">empate</span>' : '';
 }
 
 // ════════════════════════════════════════════════════
@@ -1680,9 +1722,12 @@ document.addEventListener('keydown',e=>{
 function rDash(el){
   // Mismo criterio que la pantalla Rankings: sin invitados y con "mejores N".
   const all=getAccum().filter(r=>!r.p.isInvitado);
-  const lS=[...all].sort((a,b)=>b.stb4-a.stb4)[0];
-  const lM=[...all].filter(r=>r.medalScores.length>0).sort((a,b)=>a.medal4Avg-b.medal4Avg)[0];
-  const lX=[...all].sort((a,b)=>b.mixed4-a.mixed4)[0];
+  const rkS=posicionesConEmpate(all, r=>valorRanking(r,'stb'), false);
+  const rkM=posicionesConEmpate(all, r=>valorRanking(r,'medal'), true);
+  const rkX=posicionesConEmpate(all, r=>valorRanking(r,'mixed'), false);
+  // Líder: todos los que comparten el primer puesto (sin desempatar).
+  const lider=(rk)=>{ const top=rk.filter(o=>o.pos===1); return top.length ? { r: top[0].r, nombres: top.map(o=>esc(o.r.p.short)).join(' y '), empate: top.length>1 } : null; };
+  const lS=lider(rkS), lM=lider(rkM), lX=lider(rkX);
   
   const playedDates = Object.keys(FD).map(Number).filter(n=>(n!==99||IS_TEST_MODE)&&fechaCourseOk(n)).sort((a,b)=>b-a);
   const latestFn = playedDates.length > 0 ? playedDates[0] : 1;
@@ -1701,22 +1746,24 @@ function rDash(el){
   </div>
   <div class="mg">
     <div class="mc"><div class="ml">Fechas jugadas</div><div class="mv">${SCHED.filter(s => s.status === 'played' && s.num !== 99).length}<span style="font-size:16px;color:var(--txm)"> / ${SCHED.filter(s => s.num !== 99).length}</span></div><div class="ms">Próxima: ${nextDateStr}</div></div>
-    <div class="mc"><div class="ml">Líder Stableford</div><div class="mv" style="font-size:18px">${esc(lS?.p.short||'—')}</div><div class="ms">${lS?lS.stb4+' pts':''}</div></div>
-    <div class="mc"><div class="ml">Líder Medal</div><div class="mv" style="font-size:18px">${esc(lM?.p.short||'—')}</div><div class="ms">${lM?lM.medal4Avg+' neto prom.':''}</div></div>
-    <div class="mc"><div class="ml">Líder Mixto</div><div class="mv" style="font-size:18px">${esc(lX?.p.short||'—')}</div><div class="ms">${lX?lX.mixed4+' pts':''}</div></div>
+    <div class="mc"><div class="ml">Líder Stableford</div><div class="mv" style="font-size:18px">${lS?lS.nombres:'—'}</div><div class="ms">${lS?lS.r.stb4+' pts'+(lS.empate?' · empate':''):''}</div></div>
+    <div class="mc"><div class="ml">Líder Medal</div><div class="mv" style="font-size:18px">${lM?lM.nombres:'—'}</div><div class="ms">${lM?fmtDec(lM.r.medal4Avg,2,2)+' neto prom.'+(lM.empate?' · empate':''):''}</div></div>
+    <div class="mc"><div class="ml">Líder Mixto</div><div class="mv" style="font-size:18px">${lX?lX.nombres:'—'}</div><div class="ms">${lX?lX.r.mixed4+' pts'+(lX.empate?' · empate':''):''}</div></div>
   </div>
   <div class="g2" style="margin-bottom:24px">
     <div class="card">
       <div class="ct">Ranking Stableford (Fecha ${latestFn})</div>
       <table><thead><tr><th>#</th><th>Jugador</th><th>STB</th><th>Lag</th><th>Pts</th></tr></thead><tbody>
-      ${[...all].sort((a,b)=>b.stb4-a.stb4).slice(0,6).map((r,i)=>{
+      ${rkS.slice(0,6).map(o=>{
+        const r=o.r;
         const fr=getFechaResults(latestFn).find(x=>x.pid==r.pid);
         const isLive = fr && !fr.isOfficial;
-        return `<tr class="${i<3?'hl':''}" style="${isLive ? 'border-left: 3px solid #10B981; background:#f0fdf4;' : ''}">
-          <td>${pb(i+1)}</td>
+        return `<tr class="${o.pos!=null&&o.pos<=3?'hl':''}" style="${isLive ? 'border-left: 3px solid #10B981; background:#f0fdf4;' : ''}">
+          <td>${o.pos!=null?pb(o.pos):'—'}</td>
           <td>
-            <div style="display:flex; align-items:center; gap:4px;">
+            <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
               <strong>${esc(r.p.name)}</strong>
+              ${marcaEmpate(o)}
               ${isLive ? `<span class="bdg bg pulse-live" style="background:#10B981; color:#fff; font-size:11px; padding:1px 4px; border-radius:4px;">• En Vivo — ${getLivePlayerHoleStatus(fr.sc)}</span>` : ''}
             </div>
           </td>
@@ -1731,7 +1778,7 @@ function rDash(el){
     <div class="card">
       <div class="ct">Ranking Mixto (STB + Laguneada + bonus)</div>
       <table><thead><tr><th>#</th><th>Jugador</th><th>STB</th><th>Lag</th><th>Total</th></tr></thead><tbody>
-      ${[...all].sort((a,b)=>b.mixed4-a.mixed4).slice(0,6).map((r,i)=>`<tr class="${i<3?'hl':''}"><td>${pb(i+1)}</td><td>${esc(r.p.name)}</td><td style="font-size:12px">${r.stb}</td><td style="font-size:12px">${r.lag}</td><td>${ptb(r.mixed4)}</td></tr>`).join('')}
+      ${rkX.slice(0,6).map(({r,pos,empate})=>`<tr class="${pos!=null&&pos<=3?'hl':''}"><td>${pos!=null?pb(pos):'—'}</td><td>${esc(r.p.name)}${empate?` ${marcaEmpate({empate})}`:''}</td><td style="font-size:12px">${r.stb}</td><td style="font-size:12px">${r.lag}</td><td>${ptb(r.mixed4)}</td></tr>`).join('')}
       </tbody></table>
       <div style="margin-top:12px"><button class="btn btn-s" onclick="nav('ranking')">Ver completo →</button></div>
     </div>
@@ -1864,6 +1911,12 @@ function getAccum(){
   return Object.values(map).filter(x=>x.fechas>0);
 }
 
+// Valor que define la posición en cada ranking anual (null = sin valor, p. ej. sin netos en Medal).
+function valorRanking(r, mode){
+  if (mode === 'medal') return r.medal4Avg === 9999 ? null : r.medal4Avg;
+  return mode === 'stb' ? r.stb4 : mode === 'lag' ? r.lag4 : r.mixed4;
+}
+
 function renderRT(mode){
   const el=document.getElementById('RC');
   const all=getAccum();
@@ -1871,11 +1924,8 @@ function renderRT(mode){
   // En Laguneada se muestra a todos (incluidos invitados). En los demás, no.
   const filtered = mode === 'lag' ? all : all.filter(r => !r.p.isInvitado);
   // Medal ordena por PROMEDIO de los mejores N (menor gana). El resto, por suma (mayor gana).
-  const sorted =
-    mode==='medal' ? [...filtered].sort((a,b)=>a.medal4Avg-b.medal4Avg) :
-    mode==='stb'   ? [...filtered].sort((a,b)=>b.stb4-a.stb4) :
-    mode==='lag'   ? [...filtered].sort((a,b)=>b.lag4-a.lag4) :
-                     [...filtered].sort((a,b)=>b.mixed4-a.mixed4);
+  // Los empates no se desempatan: comparten posición con la marca "empate".
+  const sorted = posicionesConEmpate(filtered, r => valorRanking(r, mode), mode === 'medal');
 
   const best4note = useBest4
     ? ` ✅ <strong>Mejores ${BEST_N}</strong> desde ${BEST_MIN_FECHAS} fechas jugadas — las que cuentan van marcadas en verde.`
@@ -1904,7 +1954,8 @@ function renderRT(mode){
     <thead><tr><th>#</th><th>Jugador</th><th>HCP</th><th>Rondas</th>
     ${SCHED.map(s=>`<th style="text-align:center">F${s.num}${s.doble?` ${MULT_FECHA_DOBLE}x`:''}</th>`).join('')}
     <th style="text-align:center">${totLabel}</th>${useBest4?`<th style="text-align:center;color:var(--g8)">${b4Label}</th>`:''}</tr></thead>
-    <tbody>${sorted.map((r,i)=>{
+    <tbody>${sorted.map(o=>{
+      const r = o.r;
       const fns4 = get4Fns(r);
       const nR = getNRounds(r);
       // El descarte aplica por jugador, no por torneo: quien no llegó a BEST_MIN_FECHAS
@@ -1938,8 +1989,8 @@ function renderRT(mode){
             !playerBest4 ? '<span style="font-size:11px;color:var(--txm);display:block">todas</span>' : ''
           }</td>`
         : '';
-      return`<tr class="${i<3?'hl':''}">
-        <td>${pb(i+1)}</td><td><strong>${esc(r.p.name)}</strong></td>
+      return`<tr class="${o.pos!=null&&o.pos<=3?'hl':''}">
+        <td>${o.pos!=null?pb(o.pos):'—'}</td><td><strong>${esc(r.p.name)}</strong>${o.empate?` ${marcaEmpate(o)}`:''}</td>
         <td>${r.p.hcp!=null?r.p.hcp:'TBD'}</td><td>${nR}</td>
         ${cells}${totalCell}${best4Cell}
       </tr>`;
@@ -2030,18 +2081,22 @@ function rFT(mode,fn){
   const pVta=c.par.slice(9).reduce((a,b)=>a+b,0);
 
   if(mode==='stb'){
-    const results=getFechaResults(fn).filter(r=>!r.isReplace).sort((a,b)=>b.stb-a.stb);
+    const cls=clasificacionFecha(getFechaResults(fn).filter(r=>!r.isReplace), r=>r.stb, false);
+    const results=cls.filas.map(o=>o.r);
     el.innerHTML=`
     <div class="alert ai" style="font-size:12px">Stableford: Eagle=4pts · Birdie=3pts · Par=2pts · Bogey=1pt · Doble+=0pts · ventaja hoyo por hoyo. Los puntos STB se acumulan directamente en el ranking anual.</div>
-    <div class="card" style="margin-bottom:20px"><table>
+    ${htmlDesempate(cls.desempate,'pts')}
+    <div class="card" style="margin-bottom:20px"><div class="tw"><table>
       <thead><tr><th>Pos</th><th>Jugador</th><th>HCP</th><th>Pts STB</th><th>Gross</th><th>Neto</th><th>Bonus</th></tr></thead>
-      <tbody>${results.map((r,i)=>{
+      <tbody>${cls.filas.map(o=>{
+        const r=o.r;
         const isLive = !r.isOfficial;
-        return `<tr class="${i<3?'hl':''}" style="${isLive ? 'border: 1px solid #10B981; background:#f0fdf4;' : ''}">
-          <td>${pb(i+1)}</td>
+        return `<tr class="${o.pos!=null&&o.pos<=3?'hl':''}" style="${isLive ? 'border: 1px solid #10B981; background:#f0fdf4;' : ''}">
+          <td>${o.pos!=null?pb(o.pos):'—'}</td>
           <td>
-            <div style="display:flex; align-items:center; gap:6px;">
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
               <strong>${esc(r.p?.name||r.sc.name||'?')}</strong>
+              ${marcaEmpate(o)}
               ${isLive ? `<span class="bdg bg pulse-live" style="background:#10B981; color:#fff; font-size:11px; padding:2px 6px; border-radius:4px;">• En Vivo — ${getLivePlayerHoleStatus(r.sc)}</span>` : ''}
               ${r.isReplace?'<span class="bdg ba" style="font-size:11px">Reempl.</span>':''}
             </div>
@@ -2051,7 +2106,7 @@ function rFT(mode,fn){
           <td>${r.bonus!==0?ptb(r.bonus):'—'}</td>
         </tr>`;
       }).join('')}</tbody>
-    </table></div>
+    </table></div></div>
     <div style="font-size:13px;font-weight:500;margin-bottom:12px;color:var(--tx2)">Tarjetas Stableford — detalle hoyo por hoyo</div>
     ${results.map(r=>{
       const sc=r.sc;
@@ -2127,27 +2182,30 @@ function rFT(mode,fn){
     }).join('')}`;
 
   } else if(mode==='medal'){
-    const rank=getFechaRank(fn,'medal');
+    const cls=clasificacionFecha(getFechaResults(fn).filter(r=>!r.isReplace), r=>r.net, true);
+    const rank=cls.filas.map(o=>o.r);
     el.innerHTML=`
-    <div class="card" style="margin-bottom:20px"><table>
-      <thead><tr><th>Pos</th><th>Jugador</th><th>HCP</th><th>Gross</th><th>Neto</th><th>vs Par</th><th>Bonus</th><th>Pts torneo</th></tr></thead>
-      <tbody>${rank.map((r,i)=>{
+    ${htmlDesempate(cls.desempate,'neto')}
+    <div class="card" style="margin-bottom:20px"><div class="tw"><table>
+      <thead><tr><th>Pos</th><th>Jugador</th><th>HCP</th><th>Gross</th><th>Neto</th><th>vs Par</th><th>Bonus</th></tr></thead>
+      <tbody>${cls.filas.map(o=>{
+        const r=o.r;
         const isLive = !r.isOfficial;
         const vp=r.net-parTotal,vs=vp===0?'E':vp>0?'+'+vp:''+vp;
-        return `<tr class="${i<3?'hl':''}" style="${isLive ? 'border: 1px solid #10B981; background:#f0fdf4;' : ''}">
-          <td>${pb(r.pos)}</td>
+        return `<tr class="${o.pos!=null&&o.pos<=3?'hl':''}" style="${isLive ? 'border: 1px solid #10B981; background:#f0fdf4;' : ''}">
+          <td>${o.pos!=null?pb(o.pos):'—'}</td>
           <td>
-            <div style="display:flex; align-items:center; gap:6px;">
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
               <strong>${esc(r.p?.name||r.sc.name||'?')}</strong>
+              ${marcaEmpate(o)}
               ${isLive ? `<span class="bdg bg pulse-live" style="background:#10B981; color:#fff; font-size:11px; padding:2px 6px; border-radius:4px;">• En Vivo — ${getLivePlayerHoleStatus(r.sc)}</span>` : ''}
             </div>
           </td>
           <td>${r.sc.hcp}</td><td>${mono(r.gross)}</td><td>${mono(r.net)}</td>
           <td>${vs}</td><td>${r.bonus!==0?ptb(r.bonus):'—'}</td>
-          <td><strong>${ptb(r.totalPts)}</strong></td>
         </tr>`;
       }).join('')}</tbody>
-    </table></div>
+    </table></div></div>
     <div style="font-size:13px;font-weight:500;margin-bottom:12px;color:var(--tx2)">Tarjetas Medal — detalle hoyo por hoyo</div>
     ${rank.map(r=>{
       const sc=r.sc;
@@ -2164,7 +2222,6 @@ function rFT(mode,fn){
           <div style="display:flex;gap:8px;align-items:center">
             <span style="font-size:12px;color:var(--tx2)">Gross ${r.gross} · Neto ${r.net}</span>
             <span class="bdg ${vp<0?'bg':vp===0?'bgr':'br'}">${vp===0?'E':vp>0?'+'+vp:''+vp}</span>
-            ${ptb(r.totalPts)}
           </div>
         </div>
         <div class="sct"><table style="min-width:660px;font-size:11px">
@@ -3136,6 +3193,28 @@ function esRondaCompleta(sc){
 }
 
 // ── Récord: mejor vuelta bruta del torneo (solo titulares) ──────────────
+// Reglamento 6.3 — Mejor Gross. Es una estadística, no un ranking anual: no usa "mejores 4"
+// ni la fecha doble. Menor promedio gross de las MEJOR_GROSS_N mejores fechas; solo titulares
+// con al menos MEJOR_GROSS_N fechas válidas (vuelta de 18 hoyos, sin no_card/abandon/no_show).
+function getMejorGross(){
+  const filas = [], afuera = [];
+  TP.filter(p => !p.isInvitado).forEach(p => {
+    const validas = [];
+    fechasJugadas().forEach(fn => {
+      const sc = FD[fn]?.scores?.[p.id];
+      if (!sc || sc.isReplace || sc.noCard || sc.abandon || sc.noShow) return;
+      if (!cuentaParaRanking(sc) || !esRondaCompleta(sc)) return;
+      validas.push({ fn, gross: gross(sc.holes) });
+    });
+    if (!validas.length) return;
+    if (validas.length < MEJOR_GROSS_N) { afuera.push({ p, n: validas.length }); return; }
+    const mejores = [...validas].sort((a,b) => a.gross - b.gross || a.fn - b.fn).slice(0, MEJOR_GROSS_N);
+    const prom = mejores.reduce((t,x) => t + x.gross, 0) / MEJOR_GROSS_N;
+    filas.push({ p, prom, promR: Math.round(prom * 100) / 100, mejores, n: validas.length });
+  });
+  return { ranking: posicionesConEmpate(filas, f => f.promR, true), afuera };
+}
+
 function getMejorVuelta(){
   let mejor = null;
   fechasJugadas().forEach(fn => {
@@ -3289,7 +3368,24 @@ function rST(mode){
         </div>
       </div>
     </div>` : '';
-    el.innerHTML=recordHtml+`
+    const mg = getMejorGross();
+    const mejorGrossHtml = mg.ranking.length ? `
+    <div class="card" style="margin-bottom:20px">
+      <div class="ct">🥇 Mejor Gross (reglamento 6.3)</div>
+      <div style="font-size:12px;color:var(--tx2);margin-bottom:10px">Menor promedio gross de las ${MEJOR_GROSS_N} mejores fechas. Solo titulares con ${MEJOR_GROSS_N} fechas o más; no cuentan tarjetas no presentadas, abandonos ni ausencias.</div>
+      <div class="tw"><table>
+        <thead><tr><th>#</th><th>Jugador</th><th>Promedio</th><th>Mejores ${MEJOR_GROSS_N}</th><th>Fechas</th></tr></thead>
+        <tbody>${mg.ranking.map(o=>`<tr class="${o.pos!=null&&o.pos<=3?'hl':''}">
+          <td>${pb(o.pos)}</td>
+          <td><strong>${esc(o.r.p.name)}</strong>${o.empate?` ${marcaEmpate(o)}`:''}</td>
+          <td>${mono(fmtDec(o.r.prom,2,2))}</td>
+          <td style="font-size:12px;color:var(--tx2);white-space:nowrap">${o.r.mejores.map(x=>`F${x.fn} <span style="font-family:'DM Mono',monospace;color:var(--tx)">${x.gross}</span>`).join(' · ')}</td>
+          <td>${o.r.n}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+      ${mg.afuera.length ? `<div style="font-size:12px;color:var(--txm);margin-top:10px">No entran (menos de ${MEJOR_GROSS_N} fechas): ${mg.afuera.map(a=>`${esc(a.p.short)} (${a.n})`).join(', ')}.</div>` : ''}
+    </div>` : '';
+    el.innerHTML=recordHtml+mejorGrossHtml+`
     <div class="mg" style="margin-bottom:20px">
       <div class="mc"><div class="ml">Rondas totales</div><div class="mv">${rows.reduce((s,r)=>s+r.st.rounds,0)}</div></div>
       <div class="mc"><div class="ml">Birdies brutos</div><div class="mv">${rows.reduce((s,r)=>s+r.st.gbirdies,0)}</div></div>
