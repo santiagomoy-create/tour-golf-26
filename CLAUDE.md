@@ -3,9 +3,9 @@
 App de gestión de un torneo de golf anual entre amigos. 12 jugadores titulares,
 6 fechas de mayo a octubre 2026 en canchas rotativas, más una Ryder Cup en noviembre.
 
-**Estado (sep 2026):** cinco fechas jugadas — F1 Club Náutico San Isidro, F2 Estancias,
-F3 Highland, F4 La Orquídea, F5 Pingüinos. Queda la F6 en Hurlingham, con puntos dobles.
-Como ya hay jugadores con cinco rondas, la regla de "mejores 4" está activa.
+**Estado (oct 2026):** seis fechas jugadas — F1 Club Náutico San Isidro, F2 Estancias,
+F3 Highland, F4 La Orquídea, F5 Pingüinos, F6 Hurlingham (fecha doble). La regla de
+"mejores 4" está activa.
 
 ## Arquitectura
 
@@ -64,6 +64,23 @@ ya se corrigió una vez; no reintroducirlo.
 
 **Medal promedia, no suma.** Con suma, quien juega menos fechas acumula menos y queda
 primero automáticamente. El promedio neutraliza eso.
+
+### Fecha doble
+
+La marca el flag `is_double` de la pestaña `calendario` (hoy, la F6). **Nunca fijarla en el
+código por número de fecha.** Es UNA fecha que vale por dos (`MULT_FECHA_DOBLE = 2`,
+`pesoFecha(fn)`), aplicado en `getAccum()`:
+
+| Ranking | Fecha doble |
+|---|---|
+| Stableford | Puntos STB ×2; entra como una sola fecha en "mejores 4". |
+| Laguneada | Puntos de línea ×2 (12/6/0). |
+| Mixto | STB ×2 + Laguneada ×2 + bonus. Los `BONUS` ya traen su valor de fecha doble: **no se vuelven a duplicar.** |
+| Medal | Se eligen los 4 mejores netos como siempre (la fecha doble es una entrada). Si queda elegida, pesa 2: `(2 × neto + otros 3) / 5`. Si no, se descarta como cualquier otra. |
+
+El doble antes estaba atado a los puntos por posición (`PTS_D`), que los rankings anuales ya
+no usan; por eso dejó de sumar. En el detalle por fecha se muestra el valor ya duplicado con
+la marca 2x (en Medal, el neto real con la marca, porque lo que se duplica es el peso).
 
 ### Regla "mejores 4 de N"
 
@@ -279,14 +296,11 @@ Antes de dar por buena una modificación:
 
 El código tolera canchas sin datos, pero calcula mal con ellas:
 
-- **Hurlingham (`HU`)**, la cancha de la F6, no tiene par, hdi, slope ni rating.
-  `String(c.par || "").split(",").map(Number)` devuelve `[NaN]`, así que en cuanto se
-  cargue esa fecha los cálculos van a salir mal. Hay que completarla antes de jugarla.
-- **La Orquídea (`OR`)** no tiene rating. El código cae al default de 72, que es un
-  número inventado, y con eso el diferencial de la F4 queda mal calculado.
+- **Hurlingham (`HU`)**, la cancha de la F6, ya tiene par (70) y HDI, pero no slope ni
+  rating: la F6 no tiene diferencial en Estadísticas hasta que se completen.
+- **La Orquídea (`OR`)** no tiene rating: la F4 no tiene diferencial (antes se inventaba 72).
 
-Vale la pena que la app avise cuando una cancha está incompleta, en vez de seguir de
-largo con valores por defecto.
+Sin par/HDI completos la app avisa y no calcula esa fecha (`courseProblems()`).
 
 ## Deploy
 
